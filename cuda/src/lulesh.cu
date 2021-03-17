@@ -3147,6 +3147,11 @@ void CalcMonoGradient(Real_t *x, Real_t *y, Real_t *z,
 #undef SUM4
 }
 
+template<typename... Args>
+__device__
+void __enzyme_autodiff(void*, Args...);
+
+__device__ int enzyme_dup, enzyme_const, enzyme_active
 
 __global__
 #ifdef DOUBLE_PRECISION
@@ -3280,7 +3285,25 @@ void CalcKinematicsAndMonotonicQGradient_kernel(
 
     CalcElemShapeFunctionDerivatives(x_local,y_local,z_local,B,&detJ );
 
-    CalcElemVelocityGradient(xd_local,yd_local,zd_local,B,detJ,D);
+#if 0
+    CalcElemVelocityGradient(
+                          xd_local,
+                          yd_local,
+                          zd_local,
+                          B,
+                          detJ,
+                          D
+                          );
+#else
+    __enzyme_autodiff((void*)CalcElemVelocityGradient,
+                  enzyme_const, xd_local,
+                  enzyme_const, yd_local,
+                  enzyme_const, zd_local,
+                  enzyme_const, B,
+                  enzyme_const, detJ,
+                  enzyme_dup, D
+                  );
+#endif
 
     // ------------------------
     // CALC LAGRANGE ELEM 2
