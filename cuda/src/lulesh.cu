@@ -2982,12 +2982,12 @@ Real_t CalcElemCharacteristicLength( const Real_t x[8],
 __device__
 static 
 __forceinline__
-void CalcElemVelocityGradient( const Real_t* const xvel,
-                                const Real_t* const yvel,
-                                const Real_t* const zvel,
+void CalcElemVelocityGradient( const Real_t* __restrict__ const xvel,
+                                const Real_t* __restrict__ const yvel,
+                                const Real_t* __restrict__ const zvel,
                                 const Real_t b[][8],
                                 const Real_t detJ,
-                                Real_t* const d )
+                                Real_t* __restrict__ const d )
 {
   const Real_t inv_detJ = Real_t(1.0) / detJ ;
   Real_t dyddx, dxddy, dzddx, dxddz, dzddy, dyddz;
@@ -3151,7 +3151,7 @@ template<typename... Args>
 __device__
 void __enzyme_autodiff(void*, Args...);
 
-__device__ int enzyme_dup, enzyme_const, enzyme_active
+__device__ int enzyme_dup, enzyme_const, enzyme_active;
 
 __global__
 #ifdef DOUBLE_PRECISION
@@ -3208,6 +3208,7 @@ void CalcKinematicsAndMonotonicQGradient_kernel(
   Real_t y_local[8] ;
   Real_t z_local[8] ;
   Real_t xd_local[8] ;
+  Real_t d_xd_local[8] = { 0 };
   Real_t yd_local[8] ;
   Real_t zd_local[8] ;
   Real_t D[6];
@@ -3282,6 +3283,8 @@ void CalcKinematicsAndMonotonicQGradient_kernel(
     }
 
     Real_t detJ;
+    double d_B[7] = {0.0};
+    double d_D[5] = {1.0};
 
     CalcElemShapeFunctionDerivatives(x_local,y_local,z_local,B,&detJ );
 
@@ -3296,12 +3299,12 @@ void CalcKinematicsAndMonotonicQGradient_kernel(
                           );
 #else
     __enzyme_autodiff((void*)CalcElemVelocityGradient,
-                  enzyme_const, xd_local,
+                  enzyme_dup,   xd_local, d_xd_local,
                   enzyme_const, yd_local,
                   enzyme_const, zd_local,
-                  enzyme_const, B,
+                  enzyme_dup, B, d_B,
                   enzyme_const, detJ,
-                  enzyme_dup, D
+                  enzyme_dup, D, d_D
                   );
 #endif
 
@@ -4271,6 +4274,12 @@ void CalcTimeConstraintsForElems(Domain* domain)
     Allocator<Vector_d<Real_t> >::free(dev_mindthydro,dimGrid);
 }
 
+template<typename... Args>
+__device__
+void __enzyme_autodiff(void*, Args...);
+
+__device__ int enzyme_dup, enzyme_const, enzyme_active
+
 
 static inline
 void LagrangeLeapFrog(Domain* domain)
@@ -4282,7 +4291,12 @@ void LagrangeLeapFrog(Domain* domain)
 
    /* calculate element quantities (i.e. velocity gradient & q), and update
     * material states */
+   #if 0
    LagrangeElements(domain);
+   #else
+   __enzyme_autodiff((void*)LagrangeElements,
+                    enzyme_dup, domain, d_domain
+   );
 
    CalcTimeConstraintsForElems(domain);
 
