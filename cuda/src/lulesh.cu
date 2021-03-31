@@ -3770,6 +3770,103 @@ __launch_bounds__(128,16)
 #else
 __launch_bounds__(128,16) 
 #endif
+void CalcMonotonicQRegionForElems_kernel(
+  Real_t qlc_monoq,
+  Real_t qqc_monoq,
+  Real_t monoq_limiter_mult,
+  Real_t monoq_max_slope,
+  Real_t ptiny,
+  
+  // the elementset length
+  Index_t elength,
+
+  Index_t* regElemlist,  
+  //  const Index_t* __restrict__ regElemlist,
+  Index_t *elemBC,
+  Index_t *lxim,
+  Index_t *lxip,
+  Index_t *letam,
+  Index_t *letap,
+  Index_t *lzetam,
+  Index_t *lzetap,
+  Real_t *delv_xi,
+  Real_t *delv_eta,
+  Real_t *delv_zeta,
+  Real_t *delx_xi,
+  Real_t *delx_eta,
+  Real_t *delx_zeta,
+  Real_t *vdov,Real_t *elemMass,Real_t *volo,Real_t *vnew,
+  Real_t *qq, Real_t *ql,
+  Real_t *q,
+  Real_t qstop,
+  Index_t* bad_q)
+{
+  #if 1
+  Inner_CalcMonotonicQRegionForElems_kernel(
+    qlc_monoq,
+    qqc_monoq,
+    monoq_limiter_mult,
+    monoq_max_slope,
+    ptiny,
+    elength,
+    regElemlist,
+    elemBC,
+    lxim,
+    lxip,
+    letam,
+    letap,
+    lzetam,
+    lzetap,
+    delv_xi,
+    delv_eta,
+    delv_zeta,
+    delx_xi,
+    delx_eta,
+    delx_zeta,
+    vdov,
+    elemMass,
+    volo,
+    vnew,
+    qq,
+    ql,
+    q,
+    qstop,
+    bad_q
+  );
+  #else
+  __enzyme_autodiff((void*)Inner_CalcMonotonicQRegionForElems_kernel,
+                    enzyme_const, qlc_monoq,
+                    enzyme_const, qqc_monoq,
+                    enzyme_const, monoq_limiter_mult,
+                    enzyme_const, monoq_max_slope,
+                    enzyme_const, ptiny,
+                    enzyme_const, elength,
+                    enzyme_const, regElemlist,
+                    enzyme_const, elemBC,
+                    enzyme_const, lxim,
+                    enzyme_const, lxip,
+                    enzyme_const, letam,
+                    enzyme_const, letap,
+                    enzyme_const, lzetam,
+                    enzyme_const, lzetap,
+                    enzyme_const, delv_xi,
+                    enzyme_const, delv_eta,
+                    enzyme_const, delv_zeta,
+                    enzyme_const, delx_xi,
+                    enzyme_const, delx_eta,
+                    enzyme_const, delx_zeta,
+                    enzyme_const, vdov,
+                    enzyme_const, elemMass,
+                    enzyme_const, volo,
+                    enzyme_const, vnew,
+                    enzyme_const, qq,
+                    enzyme_const, ql,
+                    enzyme_const, q,
+                    enzyme_const, qstop,
+                    enzyme_const, bad_q                
+  );
+  #endif
+}
 
 
 
@@ -4033,8 +4130,8 @@ Index_t giveMyRegion(const Index_t* regCSR,const Index_t i, const Index_t numReg
 }
 
 
-__global__
-void ApplyMaterialPropertiesAndUpdateVolume_kernel(
+__device__
+void Inner_ApplyMaterialPropertiesAndUpdateVolume_kernel(
         Index_t length,
         Real_t rho0,
         Real_t e_cut,
@@ -4049,7 +4146,6 @@ void ApplyMaterialPropertiesAndUpdateVolume_kernel(
         Real_t eosvmin,
         Real_t eosvmax,
         Index_t* __restrict__ regElemlist,
-//        const Index_t* __restrict__ regElemlist,
         Real_t* __restrict__ e,
         Real_t* __restrict__ delv,
         Real_t* __restrict__ p,
@@ -4061,8 +4157,7 @@ void ApplyMaterialPropertiesAndUpdateVolume_kernel(
         const Int_t cost,
         const Index_t* regCSR,
         const Index_t* regReps,
-	const Index_t  numReg
-)
+	      const Index_t  numReg)
 {
 
   Real_t e_old, delvc, p_old, q_old, e_temp, delvc_temp, p_temp, q_temp;
@@ -4124,60 +4219,23 @@ void ApplyMaterialPropertiesAndUpdateVolume_kernel(
 //    ql_old = ql[zidx] ;
 //    work = Real_t(0.) ;
 
-    // AD with Enzyme
-    #if 0
     CalcEnergyForElems_device(
-                  p_new,
-                  e_new,
-                  q_new,
-                  bvc,
-                  pbvc,
-                  p_old,
-                  e_old,
-                  q_old,
+                  p_new, e_new, q_new,
+                  bvc, pbvc,
+                  p_old, e_old, q_old,
                   compression,
                   compHalfStep,
                   vnewc,
                   work,
                   delvc,
                   pmin,
-                  p_cut,
-                  e_cut,
-                  q_cut,
+                  p_cut, e_cut, q_cut,
                   emin,
-                  qq_old,
-                  ql_old,
+                  qq_old, ql_old,
                   rho0,
                   eosvmax,
                   length
       );
-    #else
-    __enzyme_autodiff((void*)CalcEnergyForElems_device,
-                  enzyme_const, &p_new,
-                  enzyme_const, &e_new,
-                  enzyme_const, &q_new,
-                  enzyme_const, &bvc,
-                  enzyme_const, &pbvc,
-                  enzyme_const, &p_old,
-                  enzyme_const, &e_old,
-                  enzyme_const, &q_old,
-                  enzyme_const, &compression,
-                  enzyme_const, &compHalfStep,
-                  enzyme_const, &vnewc,
-                  enzyme_const, &work,
-                  enzyme_const, &delvc,
-                  enzyme_const, pmin,
-                  enzyme_const, p_cut,
-                  enzyme_const, e_cut,
-                  enzyme_const, q_cut,
-                  enzyme_const, emin,
-                  enzyme_const, &qq_old,
-                  enzyme_const, &ql_old,
-                  enzyme_const, &rho0,
-                  enzyme_const, &eosvmax,
-                  enzyme_const, length
-      );
-    #endif
 
  }//end for rep
 
@@ -4190,20 +4248,102 @@ void ApplyMaterialPropertiesAndUpdateVolume_kernel(
 
 /********************** End EvalEOSForElems     **************************/
 
-    // AD with Enzyme
-    #if 0
     UpdateVolumesForElems_device(length,v_cut,vnew,v,zidx);
-    #else
-    __enzyme_autodiff((void*)UpdateVolumesForElems_device,
-                    enzyme_const, length,
-                    enzyme_const, &v_cut,
-                    enzyme_const, vnew,
-                    enzyme_const, v,
-                    enzyme_const, zidx
-    );
-    #endif
+
   }
 }
+
+
+__global__
+void ApplyMaterialPropertiesAndUpdateVolume_kernel(
+  Index_t length,
+  Real_t rho0,
+  Real_t e_cut,
+  Real_t emin,
+  Real_t* __restrict__ ql,
+  Real_t* __restrict__ qq,
+  Real_t* __restrict__ vnew,
+  Real_t* __restrict__ v,
+  Real_t pmin,
+  Real_t p_cut,
+  Real_t q_cut,
+  Real_t eosvmin,
+  Real_t eosvmax,
+  Index_t* __restrict__ regElemlist,
+  Real_t* __restrict__ e,
+  Real_t* __restrict__ delv,
+  Real_t* __restrict__ p,
+  Real_t* __restrict__ q,
+  Real_t ss4o3,
+  Real_t* __restrict__ ss,
+  Real_t v_cut,
+  Index_t* __restrict__ bad_vol, 
+  const Int_t cost,
+  const Index_t* regCSR,
+  const Index_t* regReps,
+  const Index_t  numReg)
+{
+  #if 1
+  Inner_ApplyMaterialPropertiesAndUpdateVolume_kernel(
+      length,
+      rho0,
+      e_cut,
+      emin,
+      ql,
+      qq,
+      vnew,
+      v,
+      pmin,
+      p_cut,
+      q_cut,
+      eosvmin,
+      eosvmax,
+      regElemlist,
+      e,
+      delv,
+      p,
+      q,
+      ss4o3,
+      ss,
+      v_cut,
+      bad_vol,
+      cost,
+      regCSR,
+      regReps,
+      numReg
+  );
+  #else
+  __enzyme_autodiff((void*)Inner_ApplyMaterialPropertiesAndUpdateVolume_kernel,
+                    enzyme_const, length,
+                    enzyme_const, rho0,
+                    enzyme_const, e_cut,
+                    enzyme_const, emin,
+                    enzyme_const, ql,
+                    enzyme_const, qq,
+                    enzyme_const, vnew,
+                    enzyme_const, v,
+                    enzyme_const, pmin,
+                    enzyme_const, p_cut,
+                    enzyme_const, q_cut,
+                    enzyme_const, eosvmin,
+                    enzyme_const, eosvmax,
+                    enzyme_const, regElemlist,
+                    enzyme_const, e,
+                    enzyme_const, delv,
+                    enzyme_const, p,
+                    enzyme_const, q,
+                    enzyme_const, ss4o3,
+                    enzyme_const, ss,
+                    enzyme_const, v_cut,
+                    enzyme_const, bad_vol,
+                    enzyme_const, cost,
+                    enzyme_const, regCSR,
+                    enzyme_const, regReps,
+                    enzyme_const, numReg
+  );
+  #endif
+}
+
 
 static inline
 void ApplyMaterialPropertiesAndUpdateVolume(Domain *domain)
