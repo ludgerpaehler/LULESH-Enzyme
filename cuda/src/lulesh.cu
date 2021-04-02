@@ -101,6 +101,19 @@ __device__ inline real8  FMAX(real8  arg1,real8  arg2) { return fmax(arg1,arg2) 
 
 #define MAX(a, b) ( ((a) > (b)) ? (a) : (b))
 
+// Enzyme Autodifferentiation
+//
+//
+template<typename... Args>
+__device__
+void __enzyme_autodiff(void*, Args...);
+
+__device__ int enzyme_dup, enzyme_const, enzyme_active;
+
+// Statement to govern whether to AD or just perform a normal forward pass -> normal-forward = no AD
+__global__ bool Normal_forward = true;
+
+
 /* Stuff needed for boundary conditions */
 /* 2 BCs on each of 6 hexahedral faces (12 bits) */
 #define XI_M        0x00007
@@ -364,7 +377,6 @@ void AllocateElemPersistent(Domain* domain, size_t domElems, size_t padded_domEl
    domain->ss.resize(domElems) ;      /* "sound speed" */
 
    domain->elemMass.resize(domElems) ;  /* mass */
-
 }
 
 void AllocateSymmX(Domain* domain, size_t size)
@@ -2172,7 +2184,7 @@ __launch_bounds__(64,4)
 __launch_bounds__(64,8) 
 #endif
 void CalcVolumeForceForElems_kernel(
-  const Real_t* __restrict__ volo, 
+  const Real_t* __restrict__ volo,
   const Real_t* __restrict__ v,
   const Real_t* __restrict__ p, 
   const Real_t* __restrict__ q,
@@ -2200,7 +2212,7 @@ void CalcVolumeForceForElems_kernel(
   Index_t* __restrict__ bad_vol,
   const Index_t num_threads){
 
-  #if 1
+  #if Normal_forward
   Inner_CalcVolumeForceForElems_kernel(
           volo,
           v, p, q,
@@ -2218,23 +2230,44 @@ void CalcVolumeForceForElems_kernel(
           hourg_gt_zero
   );
   #else
+
+  // Initialize the variables to be differentiated
+  double d_volo = 0.0;
+  //double d_v = {0.0};
+  //double ss = {0.0};
+  //double xd = {0.0};
+  //double yd = {0.0};
+  //double zd = {0.0};
+
   __enzyme_autodiff((void*)Inner_CalcVolumeForceForElems_kernel,
-          enzyme_const, volo,
+          // AD of volo & v
+          enzyme_dup, volo, d_volo,
           enzyme_const, v,
+          //enzyme_dup, v, d_v,
+          // Normal variables untouched by Enzyme
           enzyme_const, p,
           enzyme_const, q,
           enzyme_const, hourg,
           enzyme_const, numElem,
           enzyme_const, padded_numElem,
           enzyme_const, nodelist,
+          // AD of ss
+          //enzyme_dup, ss, d_ss,
           enzyme_const, ss,
+          // Normal variables untouched by Enzyme
           enzyme_const, elemMass,
           enzyme_const, x,
           enzyme_const, y,
           enzyme_const, z,
+          // AD of xd, yd, zd
+          /*enzyme_dup, xd, d_xd,
+          enzyme_dup, yd, d_yd,
+          enzyme_dup, zd, d_zd,
+          */
           enzyme_const, xd,
           enzyme_const, yd,
           enzyme_const, zd,
+          // Normal variables untouched by Enzyme3
           enzyme_const, fx_elem,
           enzyme_const, fy_elem,
           enzyme_const, fz_elem,
@@ -2813,7 +2846,7 @@ void CalcAccelerationForNodes_kernel(int numNode,
                                      Real_t *fx, Real_t *fy, Real_t *fz,
                                      Real_t *nodalMass)
 {
-  #if 1
+  #if Normal_forward
   Inner_CalcAccelerationForNodes_kernel(numNode, xdd, ydd, zdd, fx, fy, fz, nodalMass);
   #else
   __enzyme_autodiff((void*)Inner_CalcAccelerationForNodes_kernel,
@@ -2837,17 +2870,11 @@ void CalcAccelerationForNodes(Domain *domain)
     Index_t dimBlock = 128;
     Index_t dimGrid = PAD_DIV(domain->numNode,dimBlock);
 
-    #if 0
     CalcAccelerationForNodes_kernel<<<dimGrid, dimBlock>>>
         (domain->numNode,
          domain->xdd.raw(),domain->ydd.raw(),domain->zdd.raw(),
          domain->fx.raw(),domain->fy.raw(),domain->fz.raw(),
          domain->nodalMass.raw());
-    #else
-    
-
-    #endif
-
 
     //cudaDeviceSynchronize();
     //cudaCheckError();
@@ -2872,7 +2899,7 @@ void ApplyAccelerationBoundaryConditionsForNodes_kernel(
   Real_t *xyzdd,
   Index_t *symm)
 {
-  #if 1
+  #if Normal_forward
   Inner_ApplyAccelerationBoundaryConditionsForNodes_kernel(
     numNodeBC, xyzdd, symm
   );
@@ -2961,7 +2988,7 @@ void CalcPositionAndVelocityForNodes_kernel(int numNode,
                                             const Real_t* __restrict__ ydd,
                                             const Real_t* __restrict__ zdd)
 {
-  #if 1
+  #if Normal_forward
   Inner_CalcPositionAndVelocityForNodes_kernel(numNode,
                                                deltatime,
                                                u_cut,
@@ -2981,7 +3008,7 @@ void CalcPositionAndVelocityForNodes_kernel(int numNode,
                     enzyme_const, zd,
                     enzyme_const, xdd,
                     enzyme_const, ydd,
-                    enzyme_const zdd
+                    enzyme_const, zdd
   );
   #endif
 }
@@ -3293,11 +3320,6 @@ void CalcMonoGradient(Real_t *x, Real_t *y, Real_t *z,
 #undef SUM4
 }
 
-template<typename... Args>
-__device__
-void __enzyme_autodiff(void*, Args...);
-
-__device__ int enzyme_dup, enzyme_const, enzyme_active;
 
 __device__
 void Inner_CalcKinematicsAndMonotonicQGradient_kernel(
@@ -3499,7 +3521,7 @@ void CalcKinematicsAndMonotonicQGradient_kernel(
     Index_t* __restrict__ bad_vol,
     const Index_t num_threads)
 {
-  #if 1
+  #if Normal_forward
   Inner_CalcKinematicsAndMonotonicQGradient_kernel(
     numElem, padded_numElem, dt,
     nodelist, volo, v,
@@ -3801,7 +3823,7 @@ void CalcMonotonicQRegionForElems_kernel(
   Real_t qstop,
   Index_t* bad_q)
 {
-  #if 1
+  #if Normal_forward
   Inner_CalcMonotonicQRegionForElems_kernel(
     qlc_monoq,
     qqc_monoq,
@@ -4283,7 +4305,7 @@ void ApplyMaterialPropertiesAndUpdateVolume_kernel(
   const Index_t* regReps,
   const Index_t  numReg)
 {
-  #if 1
+  #if Normal_forward
   Inner_ApplyMaterialPropertiesAndUpdateVolume_kernel(
       length,
       rho0,
@@ -4463,13 +4485,8 @@ void LagrangeElements(Domain *domain)
 }
 
 template<int block_size>
-__global__
-#ifdef DOUBLE_PRECISION
-__launch_bounds__(128,16) 
-#else
-__launch_bounds__(128,16) 
-#endif
-void CalcTimeConstraintsForElems_kernel(
+__device__
+void Inner_CalcTimeConstraintsForElems_kernel(
     Index_t length,
     Real_t qqc2, 
     Real_t dvovmax,
@@ -4650,6 +4667,54 @@ void CalcMinDtOneBlock(Real_t* dev_mindthydro, Real_t* dev_mindtcourant, Real_t*
     }
   }
 }
+
+
+template<int block_size>
+__global__
+#ifdef DOUBLE_PRECISION
+__launch_bounds__(128,16)
+#else
+__launch_bounds__(128,16)
+#endif
+void CalcTimeConstraintsForElems_kernel(
+  Index_t length,
+  Real_t qqc2,
+  Real_t dvovmax,
+  Index_t *matElemlist,
+  Real_t *ss,
+  Real_t *vdov,
+  Real_t *arealg,
+  Real_t *dev_mindtcourant,
+  Real_t *dev_mindthydro)
+{
+
+  #if Normal_forward
+  Inner_CalcTimeConstraintsForElems_kernel<block_size>(
+    length,
+    qqc2,
+    dvovmax,
+    matElemlist,
+    ss,
+    vdov,
+    arealg,
+    dev_mindtcourant,
+    dev_mindthydro
+  );
+  #else
+  __enzyme_autodiff((void*)Inner_CalcTimeConstraintsForElems_kernel<block_size>,
+                    enzyme_const, length,
+                    enzyme_const, qqc2,
+                    enzyme_const, dvovmax,
+                    enzyme_const, matElemlist,
+                    enzyme_const, ss,
+                    enzyme_const, vdov,
+                    enzyme_const, arealg,
+                    enzyme_const, dev_mindtcourant,
+                    enzyme_const, dev_mindthydro
+  );
+  #endif
+}
+
 
 static inline
 void CalcTimeConstraintsForElems(Domain* domain)
