@@ -2232,16 +2232,20 @@ void CalcVolumeForceForElems_kernel(
   #else
 
   // Initialize the variables to be differentiated
-  double d_volo = 0.0;
-  //double d_v = {0.0};
+  //double* d_volo = 0;
+  //double d_v = 0.0;
   //double ss = {0.0};
-  //double xd = {0.0};
-  //double yd = {0.0};
-  //double zd = {0.0};
+  //double d_xd[8] = {0};
+  //double d_yd[8] = {0};
+  //double d_zd[8] = {0};
+  Real_t d_xd[8];
+  Real_t d_yd[8];
+  Real_t d_zd[8];
 
   __enzyme_autodiff((void*)Inner_CalcVolumeForceForElems_kernel,
           // AD of volo & v
-          enzyme_dup, volo, d_volo,
+          enzyme_const, volo,
+          //enzyme_dup, volo, d_volo,
           enzyme_const, v,
           //enzyme_dup, v, d_v,
           // Normal variables untouched by Enzyme
@@ -2260,13 +2264,12 @@ void CalcVolumeForceForElems_kernel(
           enzyme_const, y,
           enzyme_const, z,
           // AD of xd, yd, zd
-          /*enzyme_dup, xd, d_xd,
+          enzyme_dup, xd, d_xd,
           enzyme_dup, yd, d_yd,
           enzyme_dup, zd, d_zd,
-          */
-          enzyme_const, xd,
-          enzyme_const, yd,
-          enzyme_const, zd,
+          //enzyme_const, xd,
+          //enzyme_const, yd,
+          //enzyme_const, zd,
           // Normal variables untouched by Enzyme3
           enzyme_const, fx_elem,
           enzyme_const, fy_elem,
@@ -2904,9 +2907,13 @@ void ApplyAccelerationBoundaryConditionsForNodes_kernel(
     numNodeBC, xyzdd, symm
   );
   #else
+  // Initialize AD variable
+  //double d_xyzdd[numNodeBC] = {0};
+
   __enzyme_autodiff((void*)Inner_ApplyAccelerationBoundaryConditionsForNodes_kernel,
                     enzyme_const, numNodeBC,
                     enzyme_const, xyzdd,
+                    //enzyme_dup, xyzdd, d_xyzdd,
                     enzyme_const, symm
   );
   #endif
@@ -2996,6 +3003,15 @@ void CalcPositionAndVelocityForNodes_kernel(int numNode,
                                                xd, yd, zd,
                                                xdd, ydd, zdd);
   #else
+  /*
+  double d_xd[numNode] = {0};
+  double d_yd[numNode] = {0};
+  double d_zd[numNode] = {0};
+  double d_xdd[numNode] = {0};
+  double d_ydd[numNode] = {0};
+  double d_zdd[numNode] = {0};
+  */
+
   __enzyme_autodiff((void*)Inner_CalcPositionAndVelocityForNodes_kernel,
                     enzyme_const, numNode,
                     enzyme_const, deltatime,
@@ -3009,6 +3025,14 @@ void CalcPositionAndVelocityForNodes_kernel(int numNode,
                     enzyme_const, xdd,
                     enzyme_const, ydd,
                     enzyme_const, zdd
+                    /*
+                    enzyme_dup, xd, d_xd,
+                    enzyme_dup, yd, d_yd,
+                    enzyme_dup, zd, d_zd,
+                    enzyme_dup, xdd, d_xdd,
+                    enzyme_dup, ydd, d_ydd,
+                    enzyme_dup, zdd, d_zdd
+                    */
   );
   #endif
 }
