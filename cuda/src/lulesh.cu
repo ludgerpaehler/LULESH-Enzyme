@@ -2234,7 +2234,6 @@ void CalcVolumeForceForElems_kernel(
   #else
 
   // Initialize the variables to be differentiated
-  //double d_volo[8] = {0};
   //double d_v = 0.0;
   //double ss = {0.0};
   //double d_xd[8] = {0};
@@ -2246,7 +2245,6 @@ void CalcVolumeForceForElems_kernel(
 
   __enzyme_autodiff((void*)Inner_CalcVolumeForceForElems_kernel,
           // AD of volo & v
-          //enzyme_const, volo,
           enzyme_dup, volo, d_volo,
           enzyme_const, v,
           //enzyme_dup, v, d_v,
@@ -3576,8 +3574,7 @@ void CalcKinematicsAndMonotonicQGradient_kernel(
                     enzyme_const, padded_numElem,
                     enzyme_const, dt,
                     enzyme_const, nodelist,
-                    enzyme_const, volo,
-                    //enzyme_dup, volo, d_volo,
+                    enzyme_dup, volo, d_volo,
                     enzyme_const, v,
                     enzyme_const, x,
                     enzyme_const, y,
@@ -3850,7 +3847,11 @@ void CalcMonotonicQRegionForElems_kernel(
   Real_t *delx_xi,
   Real_t *delx_eta,
   Real_t *delx_zeta,
-  Real_t *vdov,Real_t *elemMass,Real_t *volo,Real_t *vnew,
+  Real_t *vdov,
+  Real_t *elemMass,
+  Real_t *volo,
+  Real_t *d_volo,
+  Real_t *vnew,
   Real_t *qq, Real_t *ql,
   Real_t *q,
   Real_t qstop,
@@ -3912,7 +3913,7 @@ void CalcMonotonicQRegionForElems_kernel(
                     enzyme_const, delx_zeta,
                     enzyme_const, vdov,
                     enzyme_const, elemMass,
-                    enzyme_const, volo,
+                    enzyme_dup, volo, d_volo,
                     enzyme_const, vnew,
                     enzyme_const, qq,
                     enzyme_const, ql,
@@ -3943,14 +3944,27 @@ void CalcMonotonicQRegionForElems(Domain *domain)
     // AD taking place one level lower
     CalcMonotonicQRegionForElems_kernel<<<dimGrid,dimBlock>>>
     ( qlc_monoq,qqc_monoq,monoq_limiter_mult,monoq_max_slope,ptiny,elength,
-      domain->regElemlist.raw(),domain->elemBC.raw(),
-      domain->lxim.raw(),domain->lxip.raw(),
-      domain->letam.raw(),domain->letap.raw(),
-      domain->lzetam.raw(),domain->lzetap.raw(),
-      domain->delv_xi->raw(),domain->delv_eta->raw(),domain->delv_zeta->raw(),
-      domain->delx_xi->raw(),domain->delx_eta->raw(),domain->delx_zeta->raw(),
-      domain->vdov.raw(),domain->elemMass.raw(),domain->volo.raw(),domain->vnew->raw(),
-      domain->qq.raw(),domain->ql.raw(), 
+      domain->regElemlist.raw(),
+      domain->elemBC.raw(),
+      domain->lxim.raw(),
+      domain->lxip.raw(),
+      domain->letam.raw(),
+      domain->letap.raw(),
+      domain->lzetam.raw(),
+      domain->lzetap.raw(),
+      domain->delv_xi->raw(),
+      domain->delv_eta->raw(),
+      domain->delv_zeta->raw(),
+      domain->delx_xi->raw(),
+      domain->delx_eta->raw(),
+      domain->delx_zeta->raw(),
+      domain->vdov.raw(),
+      domain->elemMass.raw(),
+      domain->volo.raw(),
+      domain->d_volo.raw(),
+      domain->vnew->raw(),
+      domain->qq.raw(),
+      domain->ql.raw(), 
       domain->q.raw(),
       domain->qstop,
       domain->bad_q_h
