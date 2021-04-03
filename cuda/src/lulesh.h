@@ -87,6 +87,7 @@ public:
   Vector_d<Real_t> elemMass ;     /* mass */
 
   Vector_d<Real_t>* vnew ;         /* new relative volume -- temporary */
+  Vector_d<Real_t>* d_vnew ;       /* derivative of the temporary relative volume */
 
   Vector_d<Real_t>* delv_xi ;      /* velocity gradient -- temporary */
   Vector_d<Real_t>* delv_eta ;
