@@ -74,6 +74,7 @@ public:
   Vector_d<Real_t> v ;            /* relative volume */
 
   Vector_d<Real_t> volo ;         /* reference volume */
+  Vector_d<Real_t> d_volo;        /* derivative of the reference volume */     // Initialization for AD
   Vector_d<Real_t> delv ;         /* m_vnew - m_v */
   Vector_d<Real_t> vdov ;         /* volume derivative over volume */
 
