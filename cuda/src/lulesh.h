@@ -83,11 +83,11 @@ public:
   Vector_d<Real_t> arealg ;       /* char length of an element */
   
   Vector_d<Real_t> ss ;           /* "sound speed" */
+  Vector_d<Real_t> d_ss ;         /* "derivative of sound speed" */
 
   Vector_d<Real_t> elemMass ;     /* mass */
 
   Vector_d<Real_t>* vnew ;         /* new relative volume -- temporary */
-  Vector_d<Real_t>* d_vnew ;       /* derivative of the temporary relative volume */
 
   Vector_d<Real_t>* delv_xi ;      /* velocity gradient -- temporary */
   Vector_d<Real_t>* delv_eta ;
@@ -111,10 +111,18 @@ public:
   Vector_d<Real_t> yd ;
   Vector_d<Real_t> zd ;
 
+  // Specific declaration to create Enzyme vars
+  Vector_d<Real_t> d_enzyme_xd ;         /* derivative of velocities */
+  Vector_d<Real_t> d_enzyme_yd ;
+  Vector_d<Real_t> d_enzyme_zd ;
 
   Vector_d<Real_t> xdd ;          /* accelerations */
   Vector_d<Real_t> ydd ;
   Vector_d<Real_t> zdd ;
+
+  Vector_d<Real_t> d_xdd ;        /* derivative of the acceleration */
+  Vector_d<Real_t> d_ydd ;
+  Vector_d<Real_t> d_zdd ;
 
   Vector_d<Real_t> fx ;           /* forces */
   Vector_d<Real_t> fy ;

@@ -334,9 +334,17 @@ void AllocateNodalPersistent(Domain* domain, size_t domNodes)
   domain->yd.resize(domNodes) ;
   domain->zd.resize(domNodes) ;
 
+  domain->d_enzyme_xd.resize(domNodes) ; /* derivative of the velocities */
+  domain->d_enzyme_yd.resize(domNodes) ;
+  domain->d_enzyme_zd.resize(domNodes) ;
+
   domain->xdd.resize(domNodes) ; /* accelerations */
   domain->ydd.resize(domNodes) ;
   domain->zdd.resize(domNodes) ;
+
+  domain->d_xdd.resize(domNodes) ; /* derivative of the acceleration */ 
+  domain->d_ydd.resize(domNodes) ;
+  domain->d_zdd.resize(domNodes) ;
 
   domain->fx.resize(domNodes) ;  /* forces */
   domain->fy.resize(domNodes) ;
@@ -378,6 +386,7 @@ void AllocateElemPersistent(Domain* domain, size_t domElems, size_t padded_domEl
    domain->arealg.resize(domElems) ;  /* elem characteristic length */
 
    domain->ss.resize(domElems) ;      /* "sound speed" */
+   domain->d_ss.resize(domElems) ;    /* derivative of "sound speed" */
 
    domain->elemMass.resize(domElems) ;  /* mass */
 }
@@ -402,6 +411,7 @@ void InitializeFields(Domain* domain)
  /* Basic Field Initialization */
 
  thrust::fill(domain->ss.begin(),domain->ss.end(),0.);
+ thrust::fill(domain->d_ss.begin(),domain->d_ss.end(),0.);
  thrust::fill(domain->e.begin(),domain->e.end(),0.);
  thrust::fill(domain->p.begin(),domain->p.end(),0.);
  thrust::fill(domain->q.begin(),domain->q.end(),0.);
@@ -411,9 +421,19 @@ void InitializeFields(Domain* domain)
  thrust::fill(domain->yd.begin(),domain->yd.end(),0.);
  thrust::fill(domain->zd.begin(),domain->zd.end(),0.);
 
+ // Initialization of d_{xd, yd, zd} for AD
+ thrust::fill(domain->d_enzyme_xd.begin(),domain->d_enzyme_xd.end(),0.);
+ thrust::fill(domain->d_enzyme_yd.begin(),domain->d_enzyme_yd.end(),0.);
+ thrust::fill(domain->d_enzyme_zd.begin(),domain->d_enzyme_zd.end(),0.);
+
  thrust::fill(domain->xdd.begin(),domain->xdd.end(),0.);
  thrust::fill(domain->ydd.begin(),domain->ydd.end(),0.);
  thrust::fill(domain->zdd.begin(),domain->zdd.end(),0.);
+
+ // Initialization of d_{xdd, ydd, zdd} for AD
+ thrust::fill(domain->d_xdd.begin(),domain->d_xdd.end(),0.);
+ thrust::fill(domain->d_ydd.begin(),domain->d_ydd.end(),0.);
+ thrust::fill(domain->d_zdd.begin(),domain->d_zdd.end(),0.);
 
  thrust::fill(domain->nodalMass.begin(),domain->nodalMass.end(),0.);
 }
@@ -2197,14 +2217,18 @@ void CalcVolumeForceForElems_kernel(
   Index_t numElem, 
   Index_t padded_numElem, 
   const Index_t* __restrict__ nodelist,
-  const Real_t* __restrict__ ss, 
+  const Real_t* __restrict__ ss,
+  const Real_t* __restrict__ d_ss,
   const Real_t* __restrict__ elemMass,
   const Real_t* __restrict__ x,
   const Real_t* __restrict__ y, 
   const Real_t* __restrict__  z,
   const Real_t* __restrict__ xd,
   const Real_t* __restrict__ yd, 
-  const Real_t* __restrict__  zd,
+  const Real_t* __restrict__ zd,
+  const Real_t* __restrict__ d_enzyme_xd,
+  const Real_t* __restrict__ d_enzyme_yd,
+  const Real_t* __restrict__ d_enzyme_zd,
 #ifdef DOUBLE_PRECISION // For floats, use atomicAdd
   Real_t* __restrict__ fx_elem, 
   Real_t* __restrict__ fy_elem, 
@@ -2236,12 +2260,6 @@ void CalcVolumeForceForElems_kernel(
   );
   #else
   //double ss = {0.0};
-  //double d_xd[8] = {0};
-  //double d_yd[8] = {0};
-  //double d_zd[8] = {0};
-  //Real_t d_xd[8];
-  //Real_t d_yd[8];
-  //Real_t d_zd[8];
 
   __enzyme_autodiff((void*)Inner_CalcVolumeForceForElems_kernel,
           // AD of volo & v
@@ -2255,21 +2273,17 @@ void CalcVolumeForceForElems_kernel(
           enzyme_const, padded_numElem,
           enzyme_const, nodelist,
           // AD of ss
-          //enzyme_dup, ss, d_ss,
-          enzyme_const, ss,
+          enzyme_dup, ss, d_ss,
           // Normal variables untouched by Enzyme
           enzyme_const, elemMass,
           enzyme_const, x,
           enzyme_const, y,
           enzyme_const, z,
           // AD of xd, yd, zd
-          //enzyme_dup, xd, d_xd,
-          //enzyme_dup, yd, d_yd,
-          //enzyme_dup, zd, d_zd,
-          enzyme_const, xd,
-          enzyme_const, yd,
-          enzyme_const, zd,
-          // Normal variables untouched by Enzyme3
+          enzyme_dup, xd, d_enzyme_xd,
+          enzyme_dup, yd, d_enzyme_yd,
+          enzyme_dup, zd, d_enzyme_zd,
+          // Normal variables untouched by Enzyme
           enzyme_const, fx_elem,
           enzyme_const, fy_elem,
           enzyme_const, fz_elem,
@@ -2698,9 +2712,18 @@ void CalcVolumeForceForElems(const Real_t hgcoef,Domain *domain)
         domain->q.raw(),
 	      hgcoef, numElem, padded_numElem,
         domain->nodelist.raw(), 
-        domain->ss.raw(), 
+        domain->ss.raw(),
+        domain->d_ss.raw(),
         domain->elemMass.raw(),
-        domain->x.raw(), domain->y.raw(), domain->z.raw(), domain->xd.raw(), domain->yd.raw(), domain->zd.raw(),
+        domain->x.raw(),
+        domain->y.raw(),
+        domain->z.raw(),
+        domain->xd.raw(),
+        domain->yd.raw(),
+        domain->zd.raw(),
+        domain->d_enzyme_xd.raw(),
+        domain->d_enzyme_yd.raw(),
+        domain->d_enzyme_zd.raw(),
 #ifdef DOUBLE_PRECISION
         fx_elem->raw(), 
         fy_elem->raw(), 
@@ -2725,9 +2748,18 @@ void CalcVolumeForceForElems(const Real_t hgcoef,Domain *domain)
         domain->q.raw(),
 	      hgcoef, numElem, padded_numElem,
         domain->nodelist.raw(), 
-        domain->ss.raw(), 
+        domain->ss.raw(),
+        domain->d_ss.raw(),
         domain->elemMass.raw(),
-        domain->x.raw(), domain->y.raw(), domain->z.raw(), domain->xd.raw(), domain->yd.raw(), domain->zd.raw(),
+        domain->x.raw(),
+        domain->y.raw(),
+        domain->z.raw(),
+        domain->xd.raw(),
+        domain->yd.raw(),
+        domain->zd.raw(),
+        domain->d_enzyme_xd.raw(),
+        domain->d_enzyme_yd.raw(),
+        domain->d_enzyme_zd.raw(),
 #ifdef DOUBLE_PRECISION
         fx_elem->raw(), 
         fy_elem->raw(), 
