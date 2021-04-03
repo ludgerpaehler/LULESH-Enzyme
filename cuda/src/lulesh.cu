@@ -2880,8 +2880,15 @@ void Inner_CalcAccelerationForNodes_kernel(int numNode,
 // Add a further lower level 
 __global__
 void CalcAccelerationForNodes_kernel(int numNode,
-                                     Real_t *xdd, Real_t *ydd, Real_t *zdd,
-                                     Real_t *fx, Real_t *fy, Real_t *fz,
+                                     Real_t *xdd,
+                                     Real_t *ydd,
+                                     Real_t *zdd,
+                                     Real_t *d_xdd,
+                                     Real_t *d_ydd,
+                                     Real_t *d_zdd,
+                                     Real_t *fx,
+                                     Real_t *fy, 
+                                     Real_t *fz,
                                      Real_t *nodalMass)
 {
   #if Normal_forward
@@ -2889,9 +2896,11 @@ void CalcAccelerationForNodes_kernel(int numNode,
   #else
   __enzyme_autodiff((void*)Inner_CalcAccelerationForNodes_kernel,
                     enzyme_const, numNode,
-                    enzyme_const, xdd,
-                    enzyme_const, ydd,
-                    enzyme_const, zdd,
+                    // AD
+                    enzyme_dup, xdd, d_xdd,
+                    enzyme_dup, ydd, d_ydd,
+                    enzyme_dup, zdd, d_zdd,
+                    // Normal variables
                     enzyme_const, fx,
                     enzyme_const, fy,
                     enzyme_const, fz,
@@ -2910,9 +2919,17 @@ void CalcAccelerationForNodes(Domain *domain)
 
     CalcAccelerationForNodes_kernel<<<dimGrid, dimBlock>>>
         (domain->numNode,
-         domain->xdd.raw(),domain->ydd.raw(),domain->zdd.raw(),
-         domain->fx.raw(),domain->fy.raw(),domain->fz.raw(),
-         domain->nodalMass.raw());
+         domain->xdd.raw(),
+         domain->ydd.raw(),
+         domain->zdd.raw(),
+         domain->d_xdd.raw(),
+         domain->d_ydd.raw(),
+         domain->d_zdd.raw(),
+         domain->fx.raw(),
+         domain->fy.raw(),
+         domain->fz.raw(),
+         domain->nodalMass.raw()
+        );
 
     //cudaDeviceSynchronize();
     //cudaCheckError();
@@ -2935,6 +2952,7 @@ __global__
 void ApplyAccelerationBoundaryConditionsForNodes_kernel(
   int numNodeBC,
   Real_t *xyzdd,
+  Real_t *d_xyzdd,
   Index_t *symm)
 {
   #if Normal_forward
@@ -2942,13 +2960,9 @@ void ApplyAccelerationBoundaryConditionsForNodes_kernel(
     numNodeBC, xyzdd, symm
   );
   #else
-  // Initialize AD variable
-  //double d_xyzdd[numNodeBC] = {0};
-
   __enzyme_autodiff((void*)Inner_ApplyAccelerationBoundaryConditionsForNodes_kernel,
                     enzyme_const, numNodeBC,
-                    enzyme_const, xyzdd,
-                    //enzyme_dup, xyzdd, d_xyzdd,
+                    enzyme_dup, xyzdd, d_xyzdd,
                     enzyme_const, symm
   );
   #endif
@@ -2965,6 +2979,7 @@ void ApplyAccelerationBoundaryConditionsForNodes(Domain *domain)
       ApplyAccelerationBoundaryConditionsForNodes_kernel<<<dimGrid, dimBlock>>>
         (domain->numSymmX,
          domain->xdd.raw(),
+         domain->d_xdd.raw(),
          domain->symmX.raw());
 
     dimGrid = PAD_DIV(domain->numSymmY,dimBlock);
@@ -2972,6 +2987,7 @@ void ApplyAccelerationBoundaryConditionsForNodes(Domain *domain)
       ApplyAccelerationBoundaryConditionsForNodes_kernel<<<dimGrid, dimBlock>>>
         (domain->numSymmY,
          domain->ydd.raw(),
+         domain->d_ydd.raw(),
          domain->symmY.raw());
 
     dimGrid = PAD_DIV(domain->numSymmZ,dimBlock);
@@ -2979,6 +2995,7 @@ void ApplyAccelerationBoundaryConditionsForNodes(Domain *domain)
       ApplyAccelerationBoundaryConditionsForNodes_kernel<<<dimGrid, dimBlock>>>
         (domain->numSymmZ,
          domain->zdd.raw(),
+         domain->d_zdd.raw(),
          domain->symmZ.raw());
 }
 
@@ -3026,9 +3043,15 @@ void CalcPositionAndVelocityForNodes_kernel(int numNode,
                                             Real_t* __restrict__ xd,
                                             Real_t* __restrict__ yd,
                                             Real_t* __restrict__ zd,
+                                            Real_t* __restrict__ d_enzyme_xd,
+                                            Real_t* __restrict__ d_enzyme_yd,
+                                            Real_t* __restrict__ d_enzyme_zd,
                                             const Real_t* __restrict__ xdd,
                                             const Real_t* __restrict__ ydd,
-                                            const Real_t* __restrict__ zdd)
+                                            const Real_t* __restrict__ zdd,
+                                            const Real_t* __restrict__ d_xdd,
+                                            const Real_t* __restrict__ d_ydd,
+                                            const Real_t* __restrict__ d_zdd)
 {
   #if Normal_forward
   Inner_CalcPositionAndVelocityForNodes_kernel(numNode,
@@ -3038,36 +3061,21 @@ void CalcPositionAndVelocityForNodes_kernel(int numNode,
                                                xd, yd, zd,
                                                xdd, ydd, zdd);
   #else
-  /*
-  double d_xd[numNode] = {0};
-  double d_yd[numNode] = {0};
-  double d_zd[numNode] = {0};
-  double d_xdd[numNode] = {0};
-  double d_ydd[numNode] = {0};
-  double d_zdd[numNode] = {0};
-  */
-
   __enzyme_autodiff((void*)Inner_CalcPositionAndVelocityForNodes_kernel,
+                    // Normal variables
                     enzyme_const, numNode,
                     enzyme_const, deltatime,
                     enzyme_const, u_cut,
                     enzyme_const, x,
                     enzyme_const, y,
                     enzyme_const, z,
-                    enzyme_const, xd,
-                    enzyme_const, yd,
-                    enzyme_const, zd,
-                    enzyme_const, xdd,
-                    enzyme_const, ydd,
-                    enzyme_const, zdd
-                    /*
-                    enzyme_dup, xd, d_xd,
-                    enzyme_dup, yd, d_yd,
-                    enzyme_dup, zd, d_zd,
+                    // AD
+                    enzyme_dup, xd, d_enzyme_xd,
+                    enzyme_dup, yd, d_enzyme_yd,
+                    enzyme_dup, zd, d_enzyme_zd,
                     enzyme_dup, xdd, d_xdd,
                     enzyme_dup, ydd, d_ydd,
                     enzyme_dup, zdd, d_zdd
-                    */
   );
   #endif
 }
@@ -3080,10 +3088,25 @@ void CalcPositionAndVelocityForNodes(const Real_t u_cut, Domain* domain)
     Index_t dimGrid = PAD_DIV(domain->numNode,dimBlock);
 
     CalcPositionAndVelocityForNodes_kernel<<<dimGrid, dimBlock>>>
-        (domain->numNode,domain->deltatime_h,u_cut,
-         domain->x.raw(),domain->y.raw(),domain->z.raw(),
-         domain->xd.raw(),domain->yd.raw(),domain->zd.raw(),
-         domain->xdd.raw(),domain->ydd.raw(),domain->zdd.raw());
+        (domain->numNode,
+         domain->deltatime_h,
+         u_cut,
+         domain->x.raw(),
+         domain->y.raw(),
+         domain->z.raw(),
+         domain->xd.raw(),
+         domain->yd.raw(),
+         domain->zd.raw(),
+         domain->d_enzyme_xd.raw(),
+         domain->d_enzyme_yd.raw(),
+         domain->d_enzyme_zd.raw(),
+         domain->xdd.raw(),
+         domain->ydd.raw(),
+         domain->zdd.raw(),
+         domain->d_xdd.raw(),
+         domain->d_ydd.raw(),
+         domain->d_zdd.raw()
+        );
 
     //cudaDeviceSynchronize();
     //cudaCheckError();
@@ -3382,16 +3405,18 @@ void CalcMonoGradient(Real_t *x, Real_t *y, Real_t *z,
 
 __device__
 void Inner_CalcKinematicsAndMonotonicQGradient_kernel(
-    Index_t numElem, Index_t padded_numElem, const Real_t dt,
-    const Index_t* nodelist, const Real_t* volo, const Real_t* v,
-
+    Index_t numElem,
+    Index_t padded_numElem,
+    const Real_t dt,
+    const Index_t* nodelist,
+    const Real_t* volo,
+    const Real_t* v,
     const Real_t* x, 
     const Real_t* y, 
     const Real_t* z,
     const Real_t* xd, 
     const Real_t* yd, 
     const Real_t* zd,
- 
     Real_t* vnew,
     Real_t* delv,
     Real_t* arealg,
@@ -3569,6 +3594,9 @@ void CalcKinematicsAndMonotonicQGradient_kernel(
     const Real_t* __restrict__ xd, 
     const Real_t* __restrict__ yd, 
     const Real_t* __restrict__ zd,
+    const Real_t* __restrict__ d_enzyme_xd,
+    const Real_t* __restrict__ d_enzyme_yd,
+    const Real_t* __restrict__ d_enzyme_zd,
 
     Real_t* __restrict__ vnew,
     Real_t* __restrict__ delv,
@@ -3620,9 +3648,9 @@ void CalcKinematicsAndMonotonicQGradient_kernel(
                     enzyme_const, y,
                     enzyme_const, z,
                     // AD
-                    enzyme_const, xd,
-                    enzyme_const, yd,
-                    enzyme_const, zd,
+                    enzyme_dup, xd, d_enzyme_xd,
+                    enzyme_dup, yd, d_enzyme_yd,
+                    enzyme_dup, zd, d_enzyme_zd,
                     // Normal variables
                     enzyme_const, vnew,
                     enzyme_const, delv,
@@ -3670,6 +3698,9 @@ void CalcKinematicsAndMonotonicQGradient(Domain *domain)
        domain->xd.raw(),
        domain->yd.raw(),
        domain->zd.raw(),
+       domain->d_enzyme_xd.raw(),
+       domain->d_enzyme_yd.raw(),
+       domain->d_enzyme_zd.raw(),
        domain->vnew->raw(),
        domain->delv.raw(),
        domain->arealg.raw(),
