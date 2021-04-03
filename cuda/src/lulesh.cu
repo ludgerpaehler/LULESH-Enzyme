@@ -367,11 +367,13 @@ void AllocateElemPersistent(Domain* domain, size_t domElems, size_t padded_domEl
    domain->qq.resize(domElems) ;  /* quadratic term for q */
 
    domain->v.resize(domElems) ;     /* relative volume */
+   domain->d_v.resize(domElems) ;   /* derivative of relative volume */
 
    domain->volo.resize(domElems) ;  /* reference volume */
-   domain->d_volo.resize(domElems); /* derivative of the reference volume */
+   domain->d_volo.resize(domElems); /* derivative of reference volume */
    domain->delv.resize(domElems) ;  /* m_vnew - m_v */
    domain->vdov.resize(domElems) ;  /* volume derivative over volume */
+   domain->d_vdov.resize(domElems) ;/* derivative of volume derivative over volume */
 
    domain->arealg.resize(domElems) ;  /* elem characteristic length */
 
@@ -2188,6 +2190,7 @@ void CalcVolumeForceForElems_kernel(
   const Real_t* __restrict__ volo,
   const Real_t* __restrict__ d_volo,
   const Real_t* __restrict__ v,
+  const Real_t* __restrict__ d_v,
   const Real_t* __restrict__ p, 
   const Real_t* __restrict__ q,
   Real_t hourg,
@@ -2232,9 +2235,6 @@ void CalcVolumeForceForElems_kernel(
           hourg_gt_zero
   );
   #else
-
-  // Initialize the variables to be differentiated
-  //double d_v = 0.0;
   //double ss = {0.0};
   //double d_xd[8] = {0};
   //double d_yd[8] = {0};
@@ -2246,8 +2246,7 @@ void CalcVolumeForceForElems_kernel(
   __enzyme_autodiff((void*)Inner_CalcVolumeForceForElems_kernel,
           // AD of volo & v
           enzyme_dup, volo, d_volo,
-          enzyme_const, v,
-          //enzyme_dup, v, d_v,
+          enzyme_dup, v, d_v,
           // Normal variables untouched by Enzyme
           enzyme_const, p,
           enzyme_const, q,
@@ -2693,7 +2692,8 @@ void CalcVolumeForceForElems(const Real_t hgcoef,Domain *domain)
       CalcVolumeForceForElems_kernel<true> <<<dimGrid,block_size>>>
       ( domain->volo.raw(),
         domain->d_volo.raw(), 
-        domain->v.raw(), 
+        domain->v.raw(),
+        domain->d_v.raw(),
         domain->p.raw(), 
         domain->q.raw(),
 	      hgcoef, numElem, padded_numElem,
@@ -2719,7 +2719,8 @@ void CalcVolumeForceForElems(const Real_t hgcoef,Domain *domain)
       CalcVolumeForceForElems_kernel<false> <<<dimGrid,block_size>>>
       ( domain->volo.raw(),
         domain->d_volo.raw(),
-        domain->v.raw(), 
+        domain->v.raw(),
+        domain->d_v.raw(),
         domain->p.raw(), 
         domain->q.raw(),
 	      hgcoef, numElem, padded_numElem,
