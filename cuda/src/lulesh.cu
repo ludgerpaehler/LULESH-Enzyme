@@ -369,6 +369,7 @@ void AllocateElemPersistent(Domain* domain, size_t domElems, size_t padded_domEl
    domain->v.resize(domElems) ;     /* relative volume */
 
    domain->volo.resize(domElems) ;  /* reference volume */
+   domain->d_volo.resize(domElems); /* derivative of the reference volume */
    domain->delv.resize(domElems) ;  /* m_vnew - m_v */
    domain->vdov.resize(domElems) ;  /* volume derivative over volume */
 
@@ -2185,6 +2186,7 @@ __launch_bounds__(64,8)
 #endif
 void CalcVolumeForceForElems_kernel(
   const Real_t* __restrict__ volo,
+  const Real_t* __restrict__ d_volo,
   const Real_t* __restrict__ v,
   const Real_t* __restrict__ p, 
   const Real_t* __restrict__ q,
@@ -2232,20 +2234,20 @@ void CalcVolumeForceForElems_kernel(
   #else
 
   // Initialize the variables to be differentiated
-  //double* d_volo = 0;
+  //double d_volo[8] = {0};
   //double d_v = 0.0;
   //double ss = {0.0};
   //double d_xd[8] = {0};
   //double d_yd[8] = {0};
   //double d_zd[8] = {0};
-  Real_t d_xd[8];
-  Real_t d_yd[8];
-  Real_t d_zd[8];
+  //Real_t d_xd[8];
+  //Real_t d_yd[8];
+  //Real_t d_zd[8];
 
   __enzyme_autodiff((void*)Inner_CalcVolumeForceForElems_kernel,
           // AD of volo & v
-          enzyme_const, volo,
-          //enzyme_dup, volo, d_volo,
+          //enzyme_const, volo,
+          enzyme_dup, volo, d_volo,
           enzyme_const, v,
           //enzyme_dup, v, d_v,
           // Normal variables untouched by Enzyme
@@ -2264,12 +2266,12 @@ void CalcVolumeForceForElems_kernel(
           enzyme_const, y,
           enzyme_const, z,
           // AD of xd, yd, zd
-          enzyme_dup, xd, d_xd,
-          enzyme_dup, yd, d_yd,
-          enzyme_dup, zd, d_zd,
-          //enzyme_const, xd,
-          //enzyme_const, yd,
-          //enzyme_const, zd,
+          //enzyme_dup, xd, d_xd,
+          //enzyme_dup, yd, d_yd,
+          //enzyme_dup, zd, d_zd,
+          enzyme_const, xd,
+          enzyme_const, yd,
+          enzyme_const, zd,
           // Normal variables untouched by Enzyme3
           enzyme_const, fx_elem,
           enzyme_const, fy_elem,
@@ -2691,7 +2693,8 @@ void CalcVolumeForceForElems(const Real_t hgcoef,Domain *domain)
     if (hourg_gt_zero)
     {
       CalcVolumeForceForElems_kernel<true> <<<dimGrid,block_size>>>
-      ( domain->volo.raw(), 
+      ( domain->volo.raw(),
+        domain->d_volo.raw(), 
         domain->v.raw(), 
         domain->p.raw(), 
         domain->q.raw(),
@@ -2717,6 +2720,7 @@ void CalcVolumeForceForElems(const Real_t hgcoef,Domain *domain)
     {
       CalcVolumeForceForElems_kernel<false> <<<dimGrid,block_size>>>
       ( domain->volo.raw(),
+        domain->d_volo.raw(),
         domain->v.raw(), 
         domain->p.raw(), 
         domain->q.raw(),
@@ -3520,7 +3524,10 @@ __launch_bounds__(64,16) // 32-bit
 #endif
 void CalcKinematicsAndMonotonicQGradient_kernel(
     Index_t numElem, Index_t padded_numElem, const Real_t dt,
-    const Index_t* __restrict__ nodelist, const Real_t* __restrict__ volo, const Real_t* __restrict__ v,
+    const Index_t* __restrict__ nodelist,
+    const Real_t* __restrict__ volo,
+    Real_t* __restrict__ d_volo,
+    const Real_t* __restrict__ v,
 
     const Real_t* __restrict__ x, 
     const Real_t* __restrict__ y, 
@@ -3570,6 +3577,7 @@ void CalcKinematicsAndMonotonicQGradient_kernel(
                     enzyme_const, dt,
                     enzyme_const, nodelist,
                     enzyme_const, volo,
+                    //enzyme_dup, volo, d_volo,
                     enzyme_const, v,
                     enzyme_const, x,
                     enzyme_const, y,
@@ -3612,6 +3620,7 @@ void CalcKinematicsAndMonotonicQGradient(Domain *domain)
     (  numElem,padded_numElem, domain->deltatime_h, 
        domain->nodelist.raw(),
        domain->volo.raw(),
+       domain->d_volo.raw(),
        domain->v.raw(),
        domain->x.raw(), domain->y.raw(), domain->z.raw(), domain->xd.raw(), domain->yd.raw(), domain->zd.raw(),
        domain->vnew->raw(),
