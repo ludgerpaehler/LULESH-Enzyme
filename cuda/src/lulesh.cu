@@ -3522,11 +3522,14 @@ __launch_bounds__(64,8) // 64-bit
 __launch_bounds__(64,16) // 32-bit
 #endif
 void CalcKinematicsAndMonotonicQGradient_kernel(
-    Index_t numElem, Index_t padded_numElem, const Real_t dt,
+    Index_t numElem,
+    Index_t padded_numElem,
+    const Real_t dt,
     const Index_t* __restrict__ nodelist,
     const Real_t* __restrict__ volo,
     Real_t* __restrict__ d_volo,
     const Real_t* __restrict__ v,
+    Real_t* __restrict__ d_v,
 
     const Real_t* __restrict__ x, 
     const Real_t* __restrict__ y, 
@@ -3542,6 +3545,7 @@ void CalcKinematicsAndMonotonicQGradient_kernel(
     Real_t* __restrict__ dyy,
     Real_t* __restrict__ dzz,
     Real_t* __restrict__ vdov,
+    Real_t* __restrict__ d_vdov,
     Real_t* __restrict__ delx_zeta, 
     Real_t* __restrict__ delv_zeta,
     Real_t* __restrict__ delx_xi, 
@@ -3571,25 +3575,32 @@ void CalcKinematicsAndMonotonicQGradient_kernel(
   );
   #else
   __enzyme_autodiff((void*)Inner_CalcKinematicsAndMonotonicQGradient_kernel,
+                    // Normal variables
                     enzyme_const, numElem,
                     enzyme_const, padded_numElem,
                     enzyme_const, dt,
                     enzyme_const, nodelist,
+                    // AD
                     enzyme_dup, volo, d_volo,
-                    enzyme_const, v,
+                    enzyme_dup, v, d_v,
+                    // Normal variables
                     enzyme_const, x,
                     enzyme_const, y,
                     enzyme_const, z,
+                    // AD
                     enzyme_const, xd,
                     enzyme_const, yd,
                     enzyme_const, zd,
+                    // Normal variables
                     enzyme_const, vnew,
                     enzyme_const, delv,
                     enzyme_const, arealg,
                     enzyme_const, dxx,
                     enzyme_const, dyy,
                     enzyme_const, dzz,
-                    enzyme_const, vdov,
+                    // AD
+                    enzyme_dup, vdov, d_vdov,
+                    // Normal variables
                     enzyme_const, delx_zeta,
                     enzyme_const, delv_zeta,
                     enzyme_const, delx_xi,
@@ -3620,14 +3631,21 @@ void CalcKinematicsAndMonotonicQGradient(Domain *domain)
        domain->volo.raw(),
        domain->d_volo.raw(),
        domain->v.raw(),
-       domain->x.raw(), domain->y.raw(), domain->z.raw(), domain->xd.raw(), domain->yd.raw(), domain->zd.raw(),
+       domain->d_v.raw(),
+       domain->x.raw(),
+       domain->y.raw(),
+       domain->z.raw(),
+       domain->xd.raw(),
+       domain->yd.raw(),
+       domain->zd.raw(),
        domain->vnew->raw(),
        domain->delv.raw(),
        domain->arealg.raw(),
        domain->dxx->raw(),
        domain->dyy->raw(),
        domain->dzz->raw(),
-       domain->vdov.raw(), 
+       domain->vdov.raw(),
+       domain->d_vdov.raw(),
        domain->delx_zeta->raw(),
        domain->delv_zeta->raw(), 
        domain->delx_xi->raw(), 
@@ -3849,6 +3867,7 @@ void CalcMonotonicQRegionForElems_kernel(
   Real_t *delx_eta,
   Real_t *delx_zeta,
   Real_t *vdov,
+  Real_t *d_vdov,
   Real_t *elemMass,
   Real_t *volo,
   Real_t *d_volo,
@@ -3912,9 +3931,12 @@ void CalcMonotonicQRegionForElems_kernel(
                     enzyme_const, delx_xi,
                     enzyme_const, delx_eta,
                     enzyme_const, delx_zeta,
-                    enzyme_const, vdov,
+                    // AD
+                    enzyme_dup, vdov, d_vdov,
                     enzyme_const, elemMass,
+                    // AD
                     enzyme_dup, volo, d_volo,
+                    // Normal variables
                     enzyme_const, vnew,
                     enzyme_const, qq,
                     enzyme_const, ql,
@@ -3944,7 +3966,11 @@ void CalcMonotonicQRegionForElems(Domain *domain)
 
     // AD taking place one level lower
     CalcMonotonicQRegionForElems_kernel<<<dimGrid,dimBlock>>>
-    ( qlc_monoq,qqc_monoq,monoq_limiter_mult,monoq_max_slope,ptiny,elength,
+    ( qlc_monoq,
+      qqc_monoq,
+      monoq_limiter_mult,
+      monoq_max_slope,
+      ptiny,elength,
       domain->regElemlist.raw(),
       domain->elemBC.raw(),
       domain->lxim.raw(),
@@ -3960,6 +3986,7 @@ void CalcMonotonicQRegionForElems(Domain *domain)
       domain->delx_eta->raw(),
       domain->delx_zeta->raw(),
       domain->vdov.raw(),
+      domain->d_vdov.raw(),
       domain->elemMass.raw(),
       domain->volo.raw(),
       domain->d_volo.raw(),
@@ -4334,6 +4361,7 @@ void ApplyMaterialPropertiesAndUpdateVolume_kernel(
   Real_t* __restrict__ qq,
   Real_t* __restrict__ vnew,
   Real_t* __restrict__ v,
+  Real_t* __restrict__ d_v,
   Real_t pmin,
   Real_t p_cut,
   Real_t q_cut,
@@ -4390,8 +4418,10 @@ void ApplyMaterialPropertiesAndUpdateVolume_kernel(
                     enzyme_const, emin,
                     enzyme_const, ql,
                     enzyme_const, qq,
+                    // AD
                     enzyme_const, vnew,
-                    enzyme_const, v,
+                    enzyme_dup, v, d_v,
+                    // Normal variables
                     enzyme_const, pmin,
                     enzyme_const, p_cut,
                     enzyme_const, q_cut,
@@ -4434,6 +4464,7 @@ void ApplyMaterialPropertiesAndUpdateVolume(Domain *domain)
          domain->qq.raw(),
          domain->vnew->raw(),
          domain->v.raw(),
+         domain->d_v.raw(),
          domain->pmin,
          domain->p_cut,
          domain->q_cut,
@@ -4731,6 +4762,7 @@ void CalcTimeConstraintsForElems_kernel(
   Index_t *matElemlist,
   Real_t *ss,
   Real_t *vdov,
+  Real_t *d_vdov,
   Real_t *arealg,
   Real_t *dev_mindtcourant,
   Real_t *dev_mindthydro)
@@ -4755,7 +4787,9 @@ void CalcTimeConstraintsForElems_kernel(
                     enzyme_const, dvovmax,
                     enzyme_const, matElemlist,
                     enzyme_const, ss,
-                    enzyme_const, vdov,
+                    // AD
+                    enzyme_dup, vdov, d_vdov,
+                    // Normal variables
                     enzyme_const, arealg,
                     enzyme_const, dev_mindtcourant,
                     enzyme_const, dev_mindthydro
@@ -4783,9 +4817,16 @@ void CalcTimeConstraintsForElems(Domain* domain)
     Vector_d<Real_t>* dev_mindthydro  = Allocator< Vector_d<Real_t> >::allocate(dimGrid);
 
     CalcTimeConstraintsForElems_kernel<dimBlock> <<<dimGrid,dimBlock>>>
-        (length,qqc2,dvovmax,
-         domain->matElemlist.raw(),domain->ss.raw(),domain->vdov.raw(),domain->arealg.raw(),
-         dev_mindtcourant->raw(),dev_mindthydro->raw());
+        (length,
+         qqc2,
+         dvovmax,
+         domain->matElemlist.raw(),
+         domain->ss.raw(),
+         domain->vdov.raw(),
+         domain->d_vdov.raw(),
+         domain->arealg.raw(),
+         dev_mindtcourant->raw(),
+         dev_mindthydro->raw());
 
     // TODO: if dimGrid < 1024, should launch less threads
     CalcMinDtOneBlock<max_dimGrid> <<<2,max_dimGrid, max_dimGrid*sizeof(Real_t), domain->streams[1]>>>(dev_mindthydro->raw(),dev_mindtcourant->raw(),domain->dtcourant_h,domain->dthydro_h, dimGrid);
