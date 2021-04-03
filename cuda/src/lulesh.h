@@ -72,11 +72,13 @@ public:
   Vector_d<Real_t> qq ;           /* quadratic term for q */
 
   Vector_d<Real_t> v ;            /* relative volume */
+  Vector_d<Real_t> d_v ;          /* derivative of the relative volume */
 
   Vector_d<Real_t> volo ;         /* reference volume */
-  Vector_d<Real_t> d_volo;        /* derivative of the reference volume */
+  Vector_d<Real_t> d_volo ;       /* derivative of the reference volume */
   Vector_d<Real_t> delv ;         /* m_vnew - m_v */
   Vector_d<Real_t> vdov ;         /* volume derivative over volume */
+  Vector_d<Real_t> d_vdov ;       /* derivative of the volume derivative (stability) */
 
   Vector_d<Real_t> arealg ;       /* char length of an element */
   
