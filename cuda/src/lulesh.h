@@ -70,6 +70,8 @@ public:
   Vector_d<Real_t> q ;            /* q */
   Vector_d<Real_t> ql ;           /* linear term for q */
   Vector_d<Real_t> qq ;           /* quadratic term for q */
+  Vector_d<Real_t> d_ql ;         /* derivative of the linear term for q */
+  Vector_d<Real_t> d_qq ;         /* derivative of the quadratic term for q */
 
   Vector_d<Real_t> v ;            /* relative volume */
   Vector_d<Real_t> d_v ;          /* derivative of the relative volume */
