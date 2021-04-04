@@ -369,8 +369,10 @@ void AllocateElemPersistent(Domain* domain, size_t domElems, size_t padded_domEl
 
    domain->e.resize(domElems) ;   /* energy */
    domain->p.resize(domElems) ;   /* pressure */
+   domain->d_p.resize(domElems) ; /* derivative of pressure */
 
    domain->q.resize(domElems) ;   /* q */
+   domain->d_q.resize(domElems) ; /* derivative of q */
    domain->ql.resize(domElems) ;  /* linear term for q */
    domain->qq.resize(domElems) ;  /* quadratic term for q */
    domain->d_ql.resize(domElems) ; /* derivative of the linear term for q */
@@ -2213,8 +2215,10 @@ void CalcVolumeForceForElems_kernel(
   const Real_t* __restrict__ d_volo,
   const Real_t* __restrict__ v,
   const Real_t* __restrict__ d_v,
-  const Real_t* __restrict__ p, 
+  const Real_t* __restrict__ p,
+  const Real_t* __restrict__ d_p,
   const Real_t* __restrict__ q,
+  const Real_t* __restrict__ d_q,
   Real_t hourg,
   Index_t numElem, 
   Index_t padded_numElem, 
@@ -2264,19 +2268,19 @@ void CalcVolumeForceForElems_kernel(
   //double ss = {0.0};
 
   __enzyme_autodiff((void*)Inner_CalcVolumeForceForElems_kernel,
-          // AD of volo & v
+          // AD
           enzyme_dup, volo, d_volo,
           enzyme_dup, v, d_v,
-          // Normal variables untouched by Enzyme
-          enzyme_const, p,
-          enzyme_const, q,
+          enzyme_dup, p, d_p,
+          enzyme_dup, q, d_q,
+          // Normal variables
           enzyme_const, hourg,
           enzyme_const, numElem,
           enzyme_const, padded_numElem,
           enzyme_const, nodelist,
-          // AD of ss
+          // AD
           enzyme_dup, ss, d_ss,
-          // Normal variables untouched by Enzyme
+          // Normal variables
           enzyme_const, elemMass,
           enzyme_const, x,
           enzyme_const, y,
@@ -2285,7 +2289,7 @@ void CalcVolumeForceForElems_kernel(
           enzyme_dup, xd, d_enzyme_xd,
           enzyme_dup, yd, d_enzyme_yd,
           enzyme_dup, zd, d_enzyme_zd,
-          // Normal variables untouched by Enzyme
+          // Normal variables
           enzyme_const, fx_elem,
           enzyme_const, fy_elem,
           enzyme_const, fz_elem,
@@ -2710,9 +2714,13 @@ void CalcVolumeForceForElems(const Real_t hgcoef,Domain *domain)
         domain->d_volo.raw(), 
         domain->v.raw(),
         domain->d_v.raw(),
-        domain->p.raw(), 
+        domain->p.raw(),
+        domain->d_p.raw(),
         domain->q.raw(),
-	      hgcoef, numElem, padded_numElem,
+        domain->d_q.raw(),
+	      hgcoef,
+        numElem,
+        padded_numElem,
         domain->nodelist.raw(), 
         domain->ss.raw(),
         domain->d_ss.raw(),
@@ -2746,8 +2754,10 @@ void CalcVolumeForceForElems(const Real_t hgcoef,Domain *domain)
         domain->d_volo.raw(),
         domain->v.raw(),
         domain->d_v.raw(),
-        domain->p.raw(), 
+        domain->p.raw(),
+        domain->d_p.raw(),
         domain->q.raw(),
+        domain->d_q.raw(),
 	      hgcoef, numElem, padded_numElem,
         domain->nodelist.raw(), 
         domain->ss.raw(),
@@ -3736,8 +3746,7 @@ void Inner_CalcMonotonicQRegionForElems_kernel(
     // the elementset length
     Index_t elength,
   
-    Index_t* regElemlist,  
-//    const Index_t* __restrict__ regElemlist,
+    Index_t* regElemlist,
     Index_t *elemBC,
     Index_t *lxim,
     Index_t *lxip,
@@ -3751,8 +3760,12 @@ void Inner_CalcMonotonicQRegionForElems_kernel(
     Real_t *delx_xi,
     Real_t *delx_eta,
     Real_t *delx_zeta,
-    Real_t *vdov,Real_t *elemMass,Real_t *volo,Real_t *vnew,
-    Real_t *qq, Real_t *ql,
+    Real_t *vdov,
+    Real_t *elemMass,
+    Real_t *volo,
+    Real_t *vnew,
+    Real_t *qq,
+    Real_t *ql,
     Real_t *q,
     Real_t qstop,
     Index_t* bad_q 
@@ -3937,8 +3950,12 @@ void CalcMonotonicQRegionForElems_kernel(
   Real_t *volo,
   Real_t *d_volo,
   Real_t *vnew,
-  Real_t *qq, Real_t *ql,
+  Real_t *qq,
+  Real_t *d_qq,
+  Real_t *ql,
+  Real_t *d_ql,
   Real_t *q,
+  Real_t *d_q,
   Real_t qstop,
   Index_t* bad_q)
 {
@@ -3998,14 +4015,17 @@ void CalcMonotonicQRegionForElems_kernel(
                     enzyme_const, delx_zeta,
                     // AD
                     enzyme_dup, vdov, d_vdov,
+                    // Normal variable
                     enzyme_const, elemMass,
                     // AD
                     enzyme_dup, volo, d_volo,
-                    // Normal variables
+                    // Normal variable
                     enzyme_const, vnew,
-                    enzyme_const, qq,
-                    enzyme_const, ql,
-                    enzyme_const, q,
+                    // AD
+                    enzyme_dup, qq, d_qq,
+                    enzyme_dup, ql, d_ql,
+                    enzyme_dup, q, d_q,
+                    // Normal variables
                     enzyme_const, qstop,
                     enzyme_const, bad_q                
   );
@@ -4057,8 +4077,11 @@ void CalcMonotonicQRegionForElems(Domain *domain)
       domain->d_volo.raw(),
       domain->vnew->raw(),
       domain->qq.raw(),
+      domain->d_qq.raw(),
       domain->ql.raw(), 
+      domain->d_ql.raw(),
       domain->q.raw(),
+      domain->d_q.raw(),
       domain->qstop,
       domain->bad_q_h
     );
@@ -4438,7 +4461,9 @@ void ApplyMaterialPropertiesAndUpdateVolume_kernel(
   Real_t* __restrict__ e,
   Real_t* __restrict__ delv,
   Real_t* __restrict__ p,
+  Real_t* __restrict__ d_p,
   Real_t* __restrict__ q,
+  Real_t* __restrict__ d_q,
   Real_t ss4o3,
   Real_t* __restrict__ ss,
   Real_t* __restrict__ d_ss,
@@ -4501,8 +4526,10 @@ void ApplyMaterialPropertiesAndUpdateVolume_kernel(
                     enzyme_const, regElemlist,
                     enzyme_const, e,
                     enzyme_const, delv,
-                    enzyme_const, p,
-                    enzyme_const, q,
+                    // AD
+                    enzyme_dup, p, d_p,
+                    enzyme_dup, q, d_q,
+                    // Normal variable
                     enzyme_const, ss4o3,
                     // AD
                     enzyme_dup, ss, d_ss,
@@ -4549,7 +4576,9 @@ void ApplyMaterialPropertiesAndUpdateVolume(Domain *domain)
          domain->e.raw(),
          domain->delv.raw(),
          domain->p.raw(),
+         domain->d_p.raw(),
          domain->q.raw(),
+         domain->d_q.raw(),
          domain->ss4o3,
          domain->ss.raw(),
          domain->d_ss.raw(),

@@ -66,8 +66,10 @@ public:
   Vector_d<Real_t> e ;            /* energy */
 
   Vector_d<Real_t> p ;            /* pressure */
+  Vector_d<Real_t> d_p ;          /* derivative of pressure */
 
   Vector_d<Real_t> q ;            /* q */
+  Vector_d<Real_t> d_q ;          /* derivative of q */
   Vector_d<Real_t> ql ;           /* linear term for q */
   Vector_d<Real_t> qq ;           /* quadratic term for q */
   Vector_d<Real_t> d_ql ;         /* derivative of the linear term for q */
