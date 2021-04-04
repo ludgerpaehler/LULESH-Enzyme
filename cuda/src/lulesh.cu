@@ -373,6 +373,8 @@ void AllocateElemPersistent(Domain* domain, size_t domElems, size_t padded_domEl
    domain->q.resize(domElems) ;   /* q */
    domain->ql.resize(domElems) ;  /* linear term for q */
    domain->qq.resize(domElems) ;  /* quadratic term for q */
+   domain->d_ql.resize(domElems) ; /* derivative of the linear term for q */
+   domain->d_qq.resize(domElems) ; /* derivative of the quadratic term for q */
 
    domain->v.resize(domElems) ;     /* relative volume */
    domain->d_v.resize(domElems) ;   /* derivative of relative volume */
@@ -4421,7 +4423,9 @@ void ApplyMaterialPropertiesAndUpdateVolume_kernel(
   Real_t e_cut,
   Real_t emin,
   Real_t* __restrict__ ql,
+  Real_t* __restrict__ d_ql,
   Real_t* __restrict__ qq,
+  Real_t* __restrict__ d_qq,
   Real_t* __restrict__ vnew,
   Real_t* __restrict__ v,
   Real_t* __restrict__ d_v,
@@ -4437,6 +4441,7 @@ void ApplyMaterialPropertiesAndUpdateVolume_kernel(
   Real_t* __restrict__ q,
   Real_t ss4o3,
   Real_t* __restrict__ ss,
+  Real_t* __restrict__ d_ss,
   Real_t v_cut,
   Index_t* __restrict__ bad_vol, 
   const Int_t cost,
@@ -4475,14 +4480,17 @@ void ApplyMaterialPropertiesAndUpdateVolume_kernel(
   );
   #else
   __enzyme_autodiff((void*)Inner_ApplyMaterialPropertiesAndUpdateVolume_kernel,
+                    // Normal variable
                     enzyme_const, length,
                     enzyme_const, rho0,
                     enzyme_const, e_cut,
                     enzyme_const, emin,
-                    enzyme_const, ql,
-                    enzyme_const, qq,
                     // AD
+                    enzyme_dup, ql, d_ql,
+                    enzyme_dup, qq, d_qq,
+                    // Normal variable
                     enzyme_const, vnew,
+                    // AD
                     enzyme_dup, v, d_v,
                     // Normal variables
                     enzyme_const, pmin,
@@ -4496,7 +4504,9 @@ void ApplyMaterialPropertiesAndUpdateVolume_kernel(
                     enzyme_const, p,
                     enzyme_const, q,
                     enzyme_const, ss4o3,
-                    enzyme_const, ss,
+                    // AD
+                    enzyme_dup, ss, d_ss,
+                    // Normal variables
                     enzyme_const, v_cut,
                     enzyme_const, bad_vol,
                     enzyme_const, cost,
@@ -4524,7 +4534,9 @@ void ApplyMaterialPropertiesAndUpdateVolume(Domain *domain)
          domain->e_cut,
          domain->emin,
          domain->ql.raw(),
+         domain->d_ql.raw(),
          domain->qq.raw(),
+         domain->d_qq.raw(),
          domain->vnew->raw(),
          domain->v.raw(),
          domain->d_v.raw(),
@@ -4540,12 +4552,13 @@ void ApplyMaterialPropertiesAndUpdateVolume(Domain *domain)
          domain->q.raw(),
          domain->ss4o3,
          domain->ss.raw(),
+         domain->d_ss.raw(),
          domain->v_cut,
          domain->bad_vol_h,
-	 domain->cost,
-	 domain->regCSR.raw(),
-	 domain->regReps.raw(),
-	 domain->numReg
+	       domain->cost,
+	       domain->regCSR.raw(),
+	       domain->regReps.raw(),
+	       domain->numReg
          );
 
     //cudaDeviceSynchronize();
@@ -4821,9 +4834,11 @@ __launch_bounds__(128,16)
 void CalcTimeConstraintsForElems_kernel(
   Index_t length,
   Real_t qqc2,
+  Real_t d_qqc2,
   Real_t dvovmax,
   Index_t *matElemlist,
   Real_t *ss,
+  Real_t *d_ss,
   Real_t *vdov,
   Real_t *d_vdov,
   Real_t *arealg,
@@ -4846,11 +4861,13 @@ void CalcTimeConstraintsForElems_kernel(
   #else
   __enzyme_autodiff((void*)Inner_CalcTimeConstraintsForElems_kernel<block_size>,
                     enzyme_const, length,
-                    enzyme_const, qqc2,
+                    // AD
+                    enzyme_dup, qqc2, d_qqc2,
+                    // Normal variables
                     enzyme_const, dvovmax,
                     enzyme_const, matElemlist,
-                    enzyme_const, ss,
                     // AD
+                    enzyme_dup, ss, d_ss,
                     enzyme_dup, vdov, d_vdov,
                     // Normal variables
                     enzyme_const, arealg,
@@ -4866,6 +4883,7 @@ void CalcTimeConstraintsForElems(Domain* domain)
 {
     Real_t qqc = domain->qqc;
     Real_t qqc2 = Real_t(64.0) * qqc * qqc ;
+    Real_t d_qqc2 = Real_t(0.0) * qqc * qqc ;
     Real_t dvovmax = domain->dvovmax ;
 
     const Index_t length = domain->numElem;
@@ -4882,9 +4900,11 @@ void CalcTimeConstraintsForElems(Domain* domain)
     CalcTimeConstraintsForElems_kernel<dimBlock> <<<dimGrid,dimBlock>>>
         (length,
          qqc2,
+         d_qqc2,
          dvovmax,
          domain->matElemlist.raw(),
          domain->ss.raw(),
+         domain->d_ss.raw(),
          domain->vdov.raw(),
          domain->d_vdov.raw(),
          domain->arealg.raw(),
