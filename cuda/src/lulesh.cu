@@ -3100,15 +3100,15 @@ void CalcPositionAndVelocityForNodes_kernel(int numNode,
                                             Real_t* __restrict__ xd,
                                             Real_t* __restrict__ yd,
                                             Real_t* __restrict__ zd,
-                                            //Real_t* __restrict__ d_enzyme_xd,
-                                            //Real_t* __restrict__ d_enzyme_yd,
-                                            //Real_t* __restrict__ d_enzyme_zd,
+                                            Real_t* __restrict__ d_enzyme_xd,
+                                            Real_t* __restrict__ d_enzyme_yd,
+                                            Real_t* __restrict__ d_enzyme_zd,
                                             const Real_t* __restrict__ xdd,
                                             const Real_t* __restrict__ ydd,
-                                            const Real_t* __restrict__ zdd)
-                                            //const Real_t* __restrict__ d_xdd,
-                                            //const Real_t* __restrict__ d_ydd,
-                                            //const Real_t* __restrict__ d_zdd)
+                                            const Real_t* __restrict__ zdd,
+                                            const Real_t* __restrict__ d_xdd,
+                                            const Real_t* __restrict__ d_ydd,
+                                            const Real_t* __restrict__ d_zdd)
 {
   #if Normal_forward
   Inner_CalcPositionAndVelocityForNodes_kernel(numNode,
@@ -3119,28 +3119,26 @@ void CalcPositionAndVelocityForNodes_kernel(int numNode,
                                                xdd, ydd, zdd);
   #else
   __enzyme_autodiff((void*)Inner_CalcPositionAndVelocityForNodes_kernel,
-                    // Normal variables
                     enzyme_const, numNode,
                     enzyme_const, deltatime,
                     enzyme_const, u_cut,
                     enzyme_const, x,
                     enzyme_const, y,
                     enzyme_const, z,
-                    // AD
+                    /*
                     enzyme_const, xd,
                     enzyme_const, yd,
                     enzyme_const, zd,
                     enzyme_const, xdd,
                     enzyme_const, ydd,
                     enzyme_const, zdd
-                    /*
+                    */
                     enzyme_dup, xd, d_enzyme_xd,
                     enzyme_dup, yd, d_enzyme_yd,
                     enzyme_dup, zd, d_enzyme_zd,
                     enzyme_dup, xdd, d_xdd,
                     enzyme_dup, ydd, d_ydd,
                     enzyme_dup, zdd, d_zdd
-                    */
   );
   #endif
 }
@@ -3162,15 +3160,15 @@ void CalcPositionAndVelocityForNodes(const Real_t u_cut, Domain* domain)
          domain->xd.raw(),
          domain->yd.raw(),
          domain->zd.raw(),
-         //domain->d_enzyme_xd.raw(),
-         //domain->d_enzyme_yd.raw(),
-         //domain->d_enzyme_zd.raw(),
+         domain->d_enzyme_xd.raw(),
+         domain->d_enzyme_yd.raw(),
+         domain->d_enzyme_zd.raw(),
          domain->xdd.raw(),
          domain->ydd.raw(),
-         domain->zdd.raw()
-         //domain->d_xdd.raw(),
-         //domain->d_ydd.raw(),
-         //domain->d_zdd.raw()
+         domain->zdd.raw(),
+         domain->d_xdd.raw(),
+         domain->d_ydd.raw(),
+         domain->d_zdd.raw()
         );
 
     //cudaDeviceSynchronize();
