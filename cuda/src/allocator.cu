@@ -19,8 +19,8 @@ inline T* allocate( int size )
   return new T( size );
 }
 
-template< typename T >
-Allocator<T>::FreeMap& Allocator<T>::getFreeVars( )
+template<typename T>
+typename Allocator<T>::FreeMap& Allocator<T>::getFreeVars( )
 {
   static FreeMap s_free_vars;
   return s_free_vars;
