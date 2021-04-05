@@ -3002,7 +3002,7 @@ __global__
 void ApplyAccelerationBoundaryConditionsForNodes_kernel(
   int numNodeBC,
   Real_t *xyzdd,
-  //Real_t *d_xyzdd,
+  Real_t *d_xyzdd,
   Index_t *symm)
 {
   #if Normal_forward
@@ -3012,8 +3012,8 @@ void ApplyAccelerationBoundaryConditionsForNodes_kernel(
   #else
   __enzyme_autodiff((void*)Inner_ApplyAccelerationBoundaryConditionsForNodes_kernel,
                     enzyme_const, numNodeBC,
-                    enzyme_const, xyzdd,
-                    //enzyme_dup, xyzdd, d_xyzdd,
+                    //enzyme_const, xyzdd,
+                    enzyme_dup, xyzdd, d_xyzdd,
                     enzyme_const, symm
   );
   #endif
@@ -3030,7 +3030,7 @@ void ApplyAccelerationBoundaryConditionsForNodes(Domain *domain)
       ApplyAccelerationBoundaryConditionsForNodes_kernel<<<dimGrid, dimBlock>>>
         (domain->numSymmX,
          domain->xdd.raw(),
-         //domain->d_xdd.raw(),
+         domain->d_xdd.raw(),
          domain->symmX.raw());
 
     dimGrid = PAD_DIV(domain->numSymmY,dimBlock);
@@ -3038,7 +3038,7 @@ void ApplyAccelerationBoundaryConditionsForNodes(Domain *domain)
       ApplyAccelerationBoundaryConditionsForNodes_kernel<<<dimGrid, dimBlock>>>
         (domain->numSymmY,
          domain->ydd.raw(),
-         //domain->d_ydd.raw(),
+         domain->d_ydd.raw(),
          domain->symmY.raw());
 
     dimGrid = PAD_DIV(domain->numSymmZ,dimBlock);
@@ -3046,7 +3046,7 @@ void ApplyAccelerationBoundaryConditionsForNodes(Domain *domain)
       ApplyAccelerationBoundaryConditionsForNodes_kernel<<<dimGrid, dimBlock>>>
         (domain->numSymmZ,
          domain->zdd.raw(),
-         //domain->d_zdd.raw(),
+         domain->d_zdd.raw(),
          domain->symmZ.raw());
 }
 
