@@ -2,7 +2,7 @@ NVCC		= /home/lpaehler/Work/Repositories/llvm-project/build/bin/clang++
 # FLAGS		= -arch=sm_86
 # DFLAGS	= -lineinfo
 RFLAGS 	= -O3 -DNDEBUG 
-CFLAGS  = -O3 -DNDEBUG -v -fno-exceptions -mllvm -enzyme-print -Rpass=enzyme -fno-experimental-new-pass-manager -std=c++17 --cuda-path=/usr/local/cuda-11.2 -L/usr/local/cuda-11.2/lib64 --cuda-gpu-arch=sm_80 --no-cuda-version-check -Xclang -load -Xclang /home/lpaehler/Work/Repositories/Enzyme/enzyme/build13/Enzyme/ClangEnzyme-13.so
+CFLAGS  = -O3 -DNDEBUG -g -fno-exceptions -mllvm -enzyme-print -Rpass=enzyme -fno-experimental-new-pass-manager -std=c++17 --cuda-path=/usr/local/cuda-11.2 -L/usr/local/cuda-11.2/lib64 --cuda-gpu-arch=sm_80 --no-cuda-version-check -Xclang -load -Xclang /home/lpaehler/Work/Repositories/Enzyme/enzyme/build13/Enzyme/ClangEnzyme-13.so
 LDFLAGS = -lcudart_static -ldl -lrt -lpthread -lm 
 
 
