@@ -64,30 +64,23 @@ public:
   Vector_d<Int_t> elemBC ;        /* elem face symm/free-surf flag */
 
   Vector_d<Real_t> e ;            /* energy */
+  Vector_d<Real_t> d_e;           /* change in energy */
 
   Vector_d<Real_t> p ;            /* pressure */
-  Vector_d<Real_t> d_p ;          /* derivative of pressure */
 
   Vector_d<Real_t> q ;            /* q */
-  Vector_d<Real_t> d_q ;          /* derivative of q */
   Vector_d<Real_t> ql ;           /* linear term for q */
   Vector_d<Real_t> qq ;           /* quadratic term for q */
-  Vector_d<Real_t> d_ql ;         /* derivative of the linear term for q */
-  Vector_d<Real_t> d_qq ;         /* derivative of the quadratic term for q */
 
   Vector_d<Real_t> v ;            /* relative volume */
-  Vector_d<Real_t> d_v ;          /* derivative of the relative volume */
 
   Vector_d<Real_t> volo ;         /* reference volume */
-  Vector_d<Real_t> d_volo ;       /* derivative of the reference volume */
   Vector_d<Real_t> delv ;         /* m_vnew - m_v */
   Vector_d<Real_t> vdov ;         /* volume derivative over volume */
-  Vector_d<Real_t> d_vdov ;       /* derivative of the volume derivative (stability) */
 
   Vector_d<Real_t> arealg ;       /* char length of an element */
   
   Vector_d<Real_t> ss ;           /* "sound speed" */
-  Vector_d<Real_t> d_ss ;         /* "derivative of sound speed" */
 
   Vector_d<Real_t> elemMass ;     /* mass */
 
@@ -115,22 +108,18 @@ public:
   Vector_d<Real_t> yd ;
   Vector_d<Real_t> zd ;
 
-  // Specific declaration to create Enzyme vars
-  Vector_d<Real_t> d_enzyme_xd ;         /* derivative of velocities */
-  Vector_d<Real_t> d_enzyme_yd ;
-  Vector_d<Real_t> d_enzyme_zd ;
-
   Vector_d<Real_t> xdd ;          /* accelerations */
   Vector_d<Real_t> ydd ;
   Vector_d<Real_t> zdd ;
 
-  Vector_d<Real_t> d_xdd ;        /* derivative of the acceleration */
-  Vector_d<Real_t> d_ydd ;
-  Vector_d<Real_t> d_zdd ;
 
   Vector_d<Real_t> fx ;           /* forces */
   Vector_d<Real_t> fy ;
   Vector_d<Real_t> fz ;
+
+  Vector_d<Real_t> dfx ;         /* AD of the forces */
+  Vector_d<Real_t> dfy ;
+  Vector_d<Real_t> dfz ;
 
   Vector_d<Real_t> nodalMass ;    /* mass */
   Vector_h<Real_t> h_nodalMass ;    /* mass - host */
@@ -192,7 +181,9 @@ public:
   Int_t cycle ;                  /* iteration count for simulation */
 
   Real_t* dthydro_h;             /* hydro time constraint */ 
+  Real_t* d_dthydro_h;           /* AD change of the hydro time constraint */
   Real_t* dtcourant_h;           /* courant time constraint */
+  Real_t* d_dtcourant_h;         /* AD of the courant time constraint */
   Index_t* bad_q_h;              /* flag to indicate Q error */
   Index_t* bad_vol_h;            /* flag to indicate volume error */
 
