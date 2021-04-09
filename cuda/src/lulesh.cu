@@ -3094,14 +3094,6 @@ void CalcPositionAndVelocityForNodes_kernel(int numNode,
                     enzyme_const, xdd,
                     enzyme_const, ydd,
                     enzyme_const, zdd
-                    /*
-                    enzyme_dup, xd, d_enzyme_xd,
-                    enzyme_dup, yd, d_enzyme_yd,
-                    enzyme_dup, zd, d_enzyme_zd,
-                    enzyme_dup, xdd, d_xdd,
-                    enzyme_dup, ydd, d_ydd,
-                    enzyme_dup, zdd, d_zdd
-                    */
   );
   #endif
 }
@@ -4708,8 +4700,8 @@ void Inner_CalcTimeConstraintsForElems_kernel(
     int tid = threadIdx.x;
     int i=blockDim.x*blockIdx.x + tid;
 
-    __shared__ volatile Real_t s_mindthydro[block_size];
-    __shared__ volatile Real_t s_mindtcourant[block_size];
+    __shared__ Real_t s_mindthydro[block_size];
+    __shared__ Real_t s_mindtcourant[block_size];
 
     Real_t mindthydro = Real_t(1.0e+20) ;
     Real_t mindtcourant = Real_t(1.0e+20) ;
@@ -4781,38 +4773,66 @@ void Inner_CalcTimeConstraintsForElems_kernel(
         s_mindthydro[tid] = min( s_mindthydro[tid], s_mindthydro[tid +  64]) ; 
         s_mindtcourant[tid] = min( s_mindtcourant[tid], s_mindtcourant[tid +  64]) ; } 
       __syncthreads(); }
-
+    
+    /*
+    // Dumb version for comparison
     if (tid <  32) { 
       s_mindthydro[tid] = min( s_mindthydro[tid], s_mindthydro[tid +  32]) ; 
       s_mindtcourant[tid] = min( s_mindtcourant[tid], s_mindtcourant[tid +  32]) ;
-      //__syncthreads();
     } 
 
     if (tid <  16) { 
       s_mindthydro[tid] = min( s_mindthydro[tid], s_mindthydro[tid +  16]) ; 
       s_mindtcourant[tid] = min( s_mindtcourant[tid], s_mindtcourant[tid +  16]) ;
-      //__syncthreads();
     } 
     if (tid <   8) { 
       s_mindthydro[tid] = min( s_mindthydro[tid], s_mindthydro[tid +   8]) ; 
       s_mindtcourant[tid] = min( s_mindtcourant[tid], s_mindtcourant[tid +   8]) ;
-      //__syncthreads();
     } 
     if (tid <   4) { 
       s_mindthydro[tid] = min( s_mindthydro[tid], s_mindthydro[tid +   4]) ; 
       s_mindtcourant[tid] = min( s_mindtcourant[tid], s_mindtcourant[tid +   4]) ;
-      //__syncthreads();
     } 
     if (tid <   2) { 
       s_mindthydro[tid] = min( s_mindthydro[tid], s_mindthydro[tid +   2]) ; 
       s_mindtcourant[tid] = min( s_mindtcourant[tid], s_mindtcourant[tid +   2]) ;
-      //__syncthreads();
     } 
     if (tid <   1) { 
       s_mindthydro[tid] = min( s_mindthydro[tid], s_mindthydro[tid +   1]) ; 
       s_mindtcourant[tid] = min( s_mindtcourant[tid], s_mindtcourant[tid +   1]) ;
-      //__syncthreads();
-    } 
+    }
+    */
+    
+    // Nested (smart) ifs
+    if (tid <  32) { 
+      s_mindthydro[tid] = min( s_mindthydro[tid], s_mindthydro[tid +  32]); 
+      s_mindtcourant[tid] = min( s_mindtcourant[tid], s_mindtcourant[tid +  32]);
+    
+      if (tid <  16) { 
+        s_mindthydro[tid] = min( s_mindthydro[tid], s_mindthydro[tid +  16]); 
+        s_mindtcourant[tid] = min( s_mindtcourant[tid], s_mindtcourant[tid +  16]);
+       
+        if (tid <   8) { 
+          s_mindthydro[tid] = min( s_mindthydro[tid], s_mindthydro[tid +   8]);
+          s_mindtcourant[tid] = min( s_mindtcourant[tid], s_mindtcourant[tid +   8]);
+  
+          if (tid <   4) { 
+            s_mindthydro[tid] = min( s_mindthydro[tid], s_mindthydro[tid +   4]);
+            s_mindtcourant[tid] = min( s_mindtcourant[tid], s_mindtcourant[tid +   4]);
+    
+            if (tid <   2) { 
+              s_mindthydro[tid] = min( s_mindthydro[tid], s_mindthydro[tid +   2]);
+              s_mindtcourant[tid] = min( s_mindtcourant[tid], s_mindtcourant[tid +   2]);
+     
+              if (tid <   1) { 
+                s_mindthydro[tid] = min( s_mindthydro[tid], s_mindthydro[tid +   1]);
+                s_mindtcourant[tid] = min( s_mindtcourant[tid], s_mindtcourant[tid +   1]);
+              }
+            }
+          }
+        }
+      }
+    }
 
     // Store in global memory
     if (tid==0) {
@@ -5358,7 +5378,7 @@ int main(int argc, char *argv[])
     exit( LFileError ) ;
   }
 
-  int num_iters = 10;  // Length of simulation usually set to "-1" but for debugging set to 10!
+  int num_iters = 10;  // AD_LENGTH of simulation usually set to "-1" but for debugging set to 10!
   if (argc == 5) {
     num_iters = atoi(argv[4]);
   }
