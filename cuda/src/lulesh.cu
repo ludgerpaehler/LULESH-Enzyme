@@ -111,7 +111,6 @@ void __enzyme_autodiff(void*, Args...);
 __device__ int enzyme_dup, enzyme_const, enzyme_active;
 
 // Statement to govern whether to AD or just perform a normal forward pass -> normal-forward = no AD
-//__global__ bool Normal_forward = true;
 #define Normal_forward 0
 
 
