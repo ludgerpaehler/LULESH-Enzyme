@@ -6,11 +6,9 @@ SHELL = /bin/sh
 
 LULESH_EXEC = lulesh2.0
 
-MPI_INC = /opt/local/include/openmpi
-MPI_LIB = /opt/local/lib
-
-# Point your mpicc to Clang
-CXX = mpicc
+# Use the LLVM Compiler-toolchain
+CC=clang
+CXX = clang
 
 SOURCES2.0 = \
 	lulesh.cc \
@@ -40,10 +38,10 @@ ifdef USE_MPI
 mpi = -DUSE_MPI=$(USE_MPI)
 endif
 
-# Tuning flags for Power 8
-CXXFLAGS = -mcpu=pwr8 -mtune=pwr8 -fopenmp=libomp -O3 -omptargets=nvptx64sm_35-nvidia-linux $(shared) $(mpi) $(teams) $(threads) $(gpu)  
+# Tuning flags
+CXXFLAGS = -fopenmp=libomp -O3 $(shared) $(teams) $(threads) $(gpu) -DUSE_MPI=0 -I/home/lpaehler/Work/Repositories/llvm-project-11.0.0/build/projects/openmp/runtime/src/ -Xclang -load -Xclang /home/lpaehler/Work/Repositories/Enzyme/enzyme/build/Enzyme/ClangEnzyme-11.so
 
-LDFLAGS = -L/usr/local/cuda/nvvm/libdevice
+LDFLAGS = -L/usr/local/cuda/nvvm/libdevice -L/home/lpaehler/Work/Repositories/Enzyme/build/lib
 
 .cc.o: lulesh.h
 	@echo "Building $<"
@@ -53,7 +51,7 @@ all: $(LULESH_EXEC)
 
 lulesh2.0: $(OBJECTS2.0)
 	@echo "Linking"
-	$(CXX) -fopenmp=libomp -omptargets=nvptx64sm_35-nvidia-linux $(OBJECTS2.0) $(LDFLAGS) -lomp -lomptarget -lstdc++ -lm -o $@
+	$(CXX) -fopenmp=libomp $(OBJECTS2.0) $(LDFLAGS) -lomp -lomptarget -lstdc++ -lm -o $@
 
 clean:
 	/bin/rm -f *.o *~ *.tgt* $(OBJECTS) $(LULESH_EXEC)
