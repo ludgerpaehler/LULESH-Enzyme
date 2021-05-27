@@ -4773,35 +4773,6 @@ void Inner_CalcTimeConstraintsForElems_kernel(
         s_mindtcourant[tid] = min( s_mindtcourant[tid], s_mindtcourant[tid +  64]) ; } 
       __syncthreads(); }
     
-    /*
-    // Dumb version for comparison
-    if (tid <  32) { 
-      s_mindthydro[tid] = min( s_mindthydro[tid], s_mindthydro[tid +  32]) ; 
-      s_mindtcourant[tid] = min( s_mindtcourant[tid], s_mindtcourant[tid +  32]) ;
-    } 
-
-    if (tid <  16) { 
-      s_mindthydro[tid] = min( s_mindthydro[tid], s_mindthydro[tid +  16]) ; 
-      s_mindtcourant[tid] = min( s_mindtcourant[tid], s_mindtcourant[tid +  16]) ;
-    } 
-    if (tid <   8) { 
-      s_mindthydro[tid] = min( s_mindthydro[tid], s_mindthydro[tid +   8]) ; 
-      s_mindtcourant[tid] = min( s_mindtcourant[tid], s_mindtcourant[tid +   8]) ;
-    } 
-    if (tid <   4) { 
-      s_mindthydro[tid] = min( s_mindthydro[tid], s_mindthydro[tid +   4]) ; 
-      s_mindtcourant[tid] = min( s_mindtcourant[tid], s_mindtcourant[tid +   4]) ;
-    } 
-    if (tid <   2) { 
-      s_mindthydro[tid] = min( s_mindthydro[tid], s_mindthydro[tid +   2]) ; 
-      s_mindtcourant[tid] = min( s_mindtcourant[tid], s_mindtcourant[tid +   2]) ;
-    } 
-    if (tid <   1) { 
-      s_mindthydro[tid] = min( s_mindthydro[tid], s_mindthydro[tid +   1]) ; 
-      s_mindtcourant[tid] = min( s_mindtcourant[tid], s_mindtcourant[tid +   1]) ;
-    }
-    */
-    
     // Nested (smart) ifs
     if (tid <  32) { 
       s_mindthydro[tid] = min( s_mindthydro[tid], s_mindthydro[tid +  32]); 
